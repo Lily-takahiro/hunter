@@ -1,0 +1,74 @@
+<form method="POST" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label>実施日</label>
+    <input type="date" name="date" class="form-control" required>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>開始時間</label>
+      <input type="time" name="start_time" class="form-control" required>
+    </div>
+    <div class="col">
+      <label>終了時間</label>
+      <input type="time" name="end_time" class="form-control" required>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label>捕獲方法</label>
+    <select name="method" class="form-select">
+      <option value="罠">罠</option>
+      <option value="その他">その他</option>
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label>捕獲者</label>
+    <select name="hunter" class="form-select">
+      {% for member in members %}
+        <option value="{{ member }}">{{ member }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label>捕獲場所</label>
+    <select name="location" class="form-select">
+      {% for place in locations %}
+        <option value="{{ place }}">{{ place }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label>捕獲鳥獣</label>
+    <select name="animal" class="form-select">
+      {% for animal in animals %}
+        <option value="{{ animal }}">{{ animal }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label>従事内容</label><br>
+    {% for task in tasks %}
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" name="tasks" value="{{ task }}">
+        <label class="form-check-label">{{ task }}</label>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    <label>写真（前後2枚以上）</label>
+    <input type="file" name="photos" class="form-control" multiple required>
+  </div>
+
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" name="tail_submitted" value="yes">
+    <label class="form-check-label">しっぽを提出した</label>
+  </div>
+
+  <button type="submit" class="btn btn-success">報告する</button>
+</form>
