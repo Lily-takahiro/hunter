@@ -2,6 +2,10 @@ from flask import Flask, render_template, request, redirect, session, url_for
 from peewee import Model, CharField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
 
+import os      # ← 追加
+import csv     # ← 追加
+
+
 app = Flask(__name__)
 app.secret_key = "your-secret-key"  # 本番では .env で管理
 
@@ -82,9 +86,15 @@ def dashboard():
     if "user_id" not in session:
         return redirect("/login")
     user = User.get_by_id(session["user_id"])
-    return f"ようこそ、{user.name}さん（{user.role}）"
+    return render_template("dashboard.html", user=user)
 
-    return render_template("report_form.html")
+
+def load_csv_list(filename):
+    base = os.path.dirname(__file__)
+    path = os.path.join(base, filename)
+    with open(path, encoding="utf-8") as f:
+        return [row[0] for row in csv.reader(f) if row]
+
 
 
 @app.route("/report/new", methods=["GET", "POST"])
@@ -92,23 +102,13 @@ def new_report():
     if "user_id" not in session:
         return redirect("/login")
 
-    # 仮のマスターデータ（後でCSVやDBに移行）
-    members = ["佐藤隆博", "高橋健一", "鈴木一郎"]
-    locations = ["平泉", "長島", "字上町", "字下町", "字中町"]
-    animals = [
-        "ツキノワグマ",
-        "ニホンジカ",
-        "イノシシ",
-        "アナグマ",
-        "ハクビシン",
-        "タヌキ",
-        "キツネ",
-        "カモシカ",
-    ]
-    tasks = ["止め刺し", "解体", "埋設", "焼却", "放獣"]
+    locations = load_csv_list("data/地名.csv")
+    animals = load_csv_list("data/鳥獣.csv")
+    tasks = load_csv_list("data/従事内容.csv")
+    members = ["佐藤隆博", "高橋健一", "鈴木一郎"]  # 仮の名簿（後でCSV化）
 
     if request.method == "POST":
-        # ここで報告内容を保存する処理を追加予定
+        # 保存処理（後で追加）
         return "報告を受け付けました！"
 
     return render_template(
