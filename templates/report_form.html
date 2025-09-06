@@ -50,6 +50,15 @@
     </select>
   </div>
 
+    <div class="mb-3">
+    <label>オス_メス</label>
+    <select name="hunter" class="form-select">
+      {% for sex in sexs %}
+        <option value="{{ sex }}">{{ sex }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
   <div class="mb-3">
     <label>従事内容</label><br>
     {% for task in tasks %}

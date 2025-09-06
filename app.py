@@ -2,8 +2,8 @@ from flask import Flask, render_template, request, redirect, session, url_for
 from peewee import Model, CharField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
 
-import os      # ← 追加
-import csv     # ← 追加
+import os  # ← 追加
+import csv  # ← 追加
 
 
 app = Flask(__name__)
@@ -96,7 +96,6 @@ def load_csv_list(filename):
         return [row[0] for row in csv.reader(f) if row]
 
 
-
 @app.route("/report/new", methods=["GET", "POST"])
 def new_report():
     if "user_id" not in session:
@@ -104,15 +103,16 @@ def new_report():
 
     locations = load_csv_list("data/地名.csv")
     animals = load_csv_list("data/鳥獣.csv")
+    sexs = ["オス", "メス", "不明"]
     tasks = load_csv_list("data/従事内容.csv")
-    members = ["佐藤隆博", "高橋健一", "鈴木一郎"]  # 仮の名簿（後でCSV化）
+    members = load_csv_list("data/猟友会名簿.csv")
 
     if request.method == "POST":
         # 保存処理（後で追加）
         return "報告を受け付けました！"
 
     return render_template(
-        "report_form.html", members=members, locations=locations, animals=animals, tasks=tasks
+        "report_form.html", members=members, locations=locations, animals=animals, tasks=tasks, sexs=sexs
     )
 
 
