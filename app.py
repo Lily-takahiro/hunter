@@ -1,5 +1,14 @@
-from flask import Flask, render_template, request, redirect, session, url_for, send_from_directory
-from peewee import Model, CharField, SqliteDatabase
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    session,
+    url_for,
+    send_from_directory,
+    make_response,
+)
+from peewee import Model, CharField, BooleanField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # メール機能を無効化する場合は以下の行をコメントアウト
@@ -24,9 +33,9 @@ app.secret_key = "your-secret-key"  # 本番では .env で管理
 app.config["MAIL_SERVER"] = "smtp.gmail.com"  # Gmailを使用する場合
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
-app.config["MAIL_USERNAME"] = "your-email@gmail.com"  # 送信者メールアドレス
-app.config["MAIL_PASSWORD"] = "your-app-password"  # アプリパスワード
-app.config["MAIL_DEFAULT_SENDER"] = "your-email@gmail.com"
+app.config["MAIL_USERNAME"] = "tttsss120604280520@gmail.com"  # 送信者メールアドレス
+app.config["MAIL_PASSWORD"] = "1234"  # アプリパスワード
+app.config["MAIL_DEFAULT_SENDER"] = "tttsss120604280520@gmail.com"
 
 # 役場担当者のメールアドレス
 YAKUBA_EMAIL = "tttsss120604280520@example.com"  # 実際の役場メールアドレスに変更
@@ -47,6 +56,7 @@ class User(Model):
     email = CharField()
     password_hash = CharField()
     role = CharField(default="reporter")  # reporter / editor / admin
+    created_at = CharField(null=True)  # 作成日時
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -72,6 +82,9 @@ class Report(Model):
     sex = CharField()
     tasks = CharField()  # カンマ区切りで保存
     tail_submitted = CharField()  # "yes" or "no"
+    email_sent = BooleanField(default=False)  # メール送信済みフラグ
+    email_sent_date = CharField(null=True)  # メール送信日時
+    email_sent_by = CharField(null=True)  # メール送信者
 
     class Meta:
         database = db
@@ -138,10 +151,43 @@ if not RECREATE_DB:
                 print("team_membersフィールドを追加しました")
             else:
                 print("team_membersフィールドは既に存在します")
+
+            if "email_sent" not in columns:
+                db.execute_sql("ALTER TABLE report ADD COLUMN email_sent BOOLEAN DEFAULT 0")
+                print("email_sentフィールドを追加しました")
+            else:
+                print("email_sentフィールドは既に存在します")
+
+            if "email_sent_date" not in columns:
+                db.execute_sql("ALTER TABLE report ADD COLUMN email_sent_date VARCHAR(255)")
+                print("email_sent_dateフィールドを追加しました")
+            else:
+                print("email_sent_dateフィールドは既に存在します")
+
+            if "email_sent_by" not in columns:
+                db.execute_sql("ALTER TABLE report ADD COLUMN email_sent_by VARCHAR(255)")
+                print("email_sent_byフィールドを追加しました")
+            else:
+                print("email_sent_byフィールドは既に存在します")
         else:
             print("reportテーブルが存在しません")
     except Exception as e:
-        print(f"マイグレーションエラー: {e}")
+        print(f"Reportテーブルマイグレーションエラー: {e}")
+
+    # Userテーブルのマイグレーション
+    try:
+        if db.table_exists("user"):
+            columns = [column.name for column in db.get_columns("user")]
+
+            if "created_at" not in columns:
+                db.execute_sql("ALTER TABLE user ADD COLUMN created_at VARCHAR(255)")
+                print("userテーブルにcreated_atフィールドを追加しました")
+            else:
+                print("userテーブルのcreated_atフィールドは既に存在します")
+        else:
+            print("userテーブルが存在しません")
+    except Exception as e:
+        print(f"Userテーブルマイグレーションエラー: {e}")
 
 
 # トップページのルーティング
@@ -162,7 +208,8 @@ def register():
         email = request.form["email"]
         password = request.form["password"]
         role = request.form.get("role", "reporter")
-        user = User(name=name, email=email, role=role)
+        created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user = User(name=name, email=email, role=role, created_at=created_at)
         user.set_password(password)
         user.save()
         print(f"登録完了: {user.name}")
@@ -195,7 +242,8 @@ def dashboard():
     if "user_id" not in session:
         return redirect("/login")
     user = User.get_by_id(session["user_id"])
-    return render_template("dashboard.html", user=user)
+    current_time = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
+    return render_template("dashboard.html", user=user, current_time=current_time)
 
 
 def load_csv_list(filename):
@@ -239,7 +287,10 @@ def send_report_notification_email(report, user):
 
 @app.route("/report/new", methods=["GET", "POST"])
 def new_report():
+    print(f"new_report() が呼び出されました - メソッド: {request.method}")
+
     if "user_id" not in session:
+        print("セッションにuser_idがありません - ログインページにリダイレクト")
         return redirect("/login")
 
     locations = load_csv_list("data/地名.csv")
@@ -248,7 +299,12 @@ def new_report():
     tasks = load_csv_list("data/従事内容.csv")
     members = load_csv_list("data/猟友会名簿.csv")
 
+    print(f"CSVデータ読み込み完了 - メンバー数: {len(members)}")
+
     if request.method == "POST":
+        user = User.get_by_id(session["user_id"])
+        print(f"新規報告フォーム送信開始 - ユーザー: {user.name}")
+        print(f"アップロードファイル数: {len(request.files.getlist('photos'))}")
         try:
             # 報告番号を生成（日付+連番）- 重複回避機能付き
             today = datetime.date.today().strftime("%Y%m%d")
@@ -308,13 +364,15 @@ def new_report():
                 "tail_submitted": request.form.get("tail_submitted"),
             }
 
-            # 写真のバリデーション（2枚以上必須）
+            # 写真のバリデーション（1枚以上必須）
             photos = request.files.getlist("photos")
             valid_photos = [photo for photo in photos if photo.filename]
-            if len(valid_photos) < 2:
+            print(f"アップロードされた写真数: {len(photos)}, 有効な写真数: {len(valid_photos)}")
+
+            if len(valid_photos) < 1:
                 return render_template(
                     "error.html",
-                    error_message=f"写真は2枚以上必要です。現在の枚数: {len(valid_photos)}",
+                    error_message=f"写真は1枚以上必要です。現在の枚数: {len(valid_photos)}",
                     back_url="/report/new",
                 )
 
@@ -343,36 +401,66 @@ def new_report():
             if valid_photos:  # バリデーション済みの写真をアップロード
                 upload_dir = os.path.join(os.path.dirname(__file__), "uploads", reportno)
                 os.makedirs(upload_dir, exist_ok=True)
+                print(f"アップロードディレクトリ: {upload_dir}")
 
                 for i, photo in enumerate(valid_photos):
                     filename = secure_filename(photo.filename)
                     # ファイル名に番号を付けて保存
                     name, ext = os.path.splitext(filename)
                     new_filename = f"{i+1:02d}_{name}{ext}"
-                    photo.save(os.path.join(upload_dir, new_filename))
+                    file_path = os.path.join(upload_dir, new_filename)
+                    photo.save(file_path)
+                    print(f"写真を保存しました: {file_path}")
 
             # 役場担当者にメール通知を送信（メール機能が利用可能で設定が完了している場合のみ）
-            if MAIL_AVAILABLE and app.config["MAIL_USERNAME"] != "your-email@gmail.com":
+            if (
+                MAIL_AVAILABLE
+                and app.config["MAIL_USERNAME"]
+                and app.config["MAIL_USERNAME"] != "your-email@gmail.com"
+            ):
                 try:
                     send_report_notification_email(report, user)
+                    print("役場担当者へのメール通知を送信しました")
                 except Exception as e:
                     print(f"メール送信エラー: {e}")
                     # メール送信に失敗しても報告は成功とする
             else:
                 if not MAIL_AVAILABLE:
                     print("Flask-Mailが利用できないため、メール送信をスキップしました")
+                elif not app.config["MAIL_USERNAME"]:
+                    print("メールユーザー名が設定されていないため、メール送信をスキップしました")
                 else:
                     print("メール設定が未完了のため、メール送信をスキップしました")
 
             # 成功時にセッションデータをクリア
             session.pop("form_data", None)
-            return render_template("report_success.html", reportno=reportno)
+            print(f"報告が正常に作成されました: {reportno}")
+
+            # メール送信状況を確認
+            mail_sent = False
+            if (
+                MAIL_AVAILABLE
+                and app.config["MAIL_USERNAME"]
+                and app.config["MAIL_USERNAME"] != "your-email@gmail.com"
+            ):
+                mail_sent = True
+
+            return render_template("report_success.html", reportno=reportno, mail_sent=mail_sent)
 
         except Exception as e:
-            return f"エラーが発生しました: {str(e)}"
+            print(f"報告作成エラー: {str(e)}")
+            import traceback
+
+            traceback.print_exc()
+            return render_template(
+                "error.html",
+                error_message=f"報告の作成中にエラーが発生しました: {str(e)}",
+                back_url="/report/new",
+            )
 
     # セッションからフォームデータを復元
     form_data = session.get("form_data", {})
+    print(f"GET処理 - フォームデータ: {form_data}")
 
     return render_template(
         "report_form.html",
@@ -399,6 +487,373 @@ def reports():
         reports_list = Report.select().where(Report.user == user.name).order_by(Report.reportno.desc())
 
     return render_template("reports.html", reports=reports_list, user=user)
+
+
+# メール返信フォーム表示
+@app.route("/reports/<int:report_id>/email")
+def email_reply_form(report_id):
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    try:
+        report = Report.get_by_id(report_id)
+
+        # メールテンプレート
+        email_template = f"""{report.user} 様
+
+この度は、猟友会活動報告書をご提出いただき、誠にありがとうございます。
+
+以下の報告書を受理いたしました：
+
+■ 報告番号: {report.reportno}
+■ 実施日: {report.date}
+■ 捕獲鳥獣: {report.animal}
+■ 捕獲場所: {report.location}
+
+報告書の内容を確認させていただき、適切に処理いたします。
+今後とも猟友会活動にご協力のほど、よろしくお願いいたします。
+
+---
+{user.name}
+役場担当者"""
+
+        return render_template(
+            "email_reply.html", report=report, current_user=user, email_template=email_template
+        )
+    except Report.DoesNotExist:
+        return "報告が見つかりません", 404
+
+
+# メール送信処理
+@app.route("/reports/<int:report_id>/email", methods=["POST"])
+def send_email_reply(report_id):
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    try:
+        report = Report.get_by_id(report_id)
+
+        # 既にメール送信済みかチェック
+        if report.email_sent:
+            return render_template(
+                "error.html",
+                error_message="この報告には既にメールが送信されています。",
+                back_url=f"/reports/{report_id}/email",
+            )
+
+        subject = request.form.get("subject")
+        body = request.form.get("body")
+        send_copy = request.form.get("send_copy") == "on"
+
+        if not MAIL_AVAILABLE:
+            return render_template(
+                "error.html",
+                error_message="メール機能が利用できません。システム管理者にお問い合わせください。",
+                back_url=f"/reports/{report_id}/email",
+            )
+
+        # メール送信
+        try:
+            # 報告者へのメール
+            msg = Message(
+                subject=subject,
+                recipients=[f"{report.user}@gmail.com"],  # 実際のメールアドレスに変更
+                body=body,
+                sender=app.config["MAIL_DEFAULT_SENDER"],
+            )
+            mail.send(msg)
+
+            # 役場担当者へのコピー
+            if send_copy:
+                copy_msg = Message(
+                    subject=f"[コピー] {subject}",
+                    recipients=[app.config["YAKUBA_EMAIL"]],
+                    body=f"以下のメールを送信しました：\n\n{body}",
+                    sender=app.config["MAIL_DEFAULT_SENDER"],
+                )
+                mail.send(copy_msg)
+
+            # 送信状況を記録
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            report.email_sent = True
+            report.email_sent_date = current_time
+            report.email_sent_by = user.name
+            report.save()
+
+            return render_template(
+                "email_success.html", report=report, message="メールを正常に送信しました。"
+            )
+
+        except Exception as e:
+            return render_template(
+                "error.html",
+                error_message=f"メール送信に失敗しました: {str(e)}",
+                back_url=f"/reports/{report_id}/email",
+            )
+
+    except Report.DoesNotExist:
+        return "報告が見つかりません", 404
+
+
+# ユーザー管理画面
+@app.route("/users/manage")
+def user_management():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    # 全ユーザーを取得（報告数も含める）
+    users = []
+    for u in User.select():
+        report_count = Report.select().where(Report.user == u.name).count()
+        users.append(
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role,
+                "created_at": u.created_at,
+                "report_count": report_count,
+            }
+        )
+
+    # 統計情報
+    total_users = len(users)
+    admin_count = len([u for u in users if u["role"] == "admin"])
+    editor_count = len([u for u in users if u["role"] == "editor"])
+    user_count = len([u for u in users if u["role"] == "user"])
+
+    return render_template(
+        "user_management.html",
+        users=users,
+        current_user=user,
+        total_users=total_users,
+        admin_count=admin_count,
+        editor_count=editor_count,
+        user_count=user_count,
+    )
+
+
+# ユーザー削除
+@app.route("/users/<int:user_id>/delete", methods=["POST"])
+def delete_user(user_id):
+    if "user_id" not in session:
+        return redirect("/login")
+
+    current_user = User.get_by_id(session["user_id"])
+    if current_user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    try:
+        # 削除対象のユーザーを取得
+        target_user = User.get_by_id(user_id)
+
+        # 自分自身は削除できない
+        if target_user.id == current_user.id:
+            return render_template(
+                "error.html", error_message="自分自身を削除することはできません。", back_url="/users/manage"
+            )
+
+        # ユーザーに関連する報告データも削除
+        Report.delete().where(Report.user == target_user.name).execute()
+
+        # ユーザーを削除
+        target_user.delete_instance()
+
+        print(f"ユーザー '{target_user.name}' を削除しました")
+        return redirect("/users/manage")
+
+    except User.DoesNotExist:
+        return render_template(
+            "error.html", error_message="指定されたユーザーが見つかりません。", back_url="/users/manage"
+        )
+    except Exception as e:
+        print(f"ユーザー削除エラー: {str(e)}")
+        return render_template(
+            "error.html",
+            error_message=f"ユーザーの削除中にエラーが発生しました: {str(e)}",
+            back_url="/users/manage",
+        )
+
+
+# CSV出力フォーム表示
+@app.route("/reports/export")
+def csv_export_form():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    # 統計情報を取得
+    total_reports = Report.select().count()
+    this_month = datetime.date.today().replace(day=1)
+    this_month_reports = Report.select().where(Report.date >= this_month.strftime("%Y-%m-%d")).count()
+    unique_hunters = Report.select(Report.user).distinct().count()
+
+    return render_template(
+        "csv_export.html",
+        total_reports=total_reports,
+        this_month_reports=this_month_reports,
+        unique_hunters=unique_hunters,
+    )
+
+
+# CSV出力処理
+@app.route("/reports/export", methods=["POST"])
+def export_reports_csv():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    try:
+        # フォームデータを取得
+        start_date = request.form.get("start_date")
+        end_date = request.form.get("end_date")
+        include_photos = request.form.get("include_photos") == "on"
+        include_member_info = request.form.get("include_member_info") == "on"
+
+        # 日付範囲で報告データを取得
+        if start_date and end_date:
+            reports = (
+                Report.select()
+                .where((Report.date >= start_date) & (Report.date <= end_date))
+                .order_by(Report.reportno.desc())
+            )
+        else:
+            reports = Report.select().order_by(Report.reportno.desc())
+
+        # CSVヘッダーを生成
+        headers = [
+            "報告番号",
+            "報告者",
+            "実施日",
+            "開始時間",
+            "終了時間",
+            "捕獲方法",
+            "捕獲者",
+            "実施隊従事者",
+            "捕獲場所",
+            "捕獲鳥獣",
+            "性別",
+            "従事内容",
+            "しっぽ提出",
+        ]
+
+        # オプション項目を追加
+        if include_member_info:
+            headers.extend(
+                [
+                    "大型獣許可番号",
+                    "大型獣従事者番号",
+                    "大型獣指示書番号",
+                    "小型獣許可番号",
+                    "小型獣従事者番号",
+                    "小型獣指示書番号",
+                ]
+            )
+
+        if include_photos:
+            headers.append("写真ファイル数")
+
+        output = [headers]
+
+        # データ行を生成
+        for report in reports:
+            row = [
+                report.reportno,
+                report.user,
+                report.date,
+                report.start_time,
+                report.end_time,
+                report.method,
+                report.hunter,
+                report.team_members or "",
+                report.location,
+                report.animal,
+                report.sex,
+                report.tasks or "",
+                "提出済み" if report.tail_submitted == "yes" else "未提出",
+            ]
+
+            # 猟友会メンバー情報を追加
+            if include_member_info:
+                member = Member.get_or_none(Member.name == report.hunter)
+                if member:
+                    row.extend(
+                        [
+                            member.large_license_permit or "",
+                            member.large_license_operator or "",
+                            member.large_license_instruction or "",
+                            member.small_license_permit or "",
+                            member.small_license_operator or "",
+                            member.small_license_instruction or "",
+                        ]
+                    )
+                else:
+                    row.extend(["", "", "", "", "", ""])
+
+            # 写真情報を追加
+            if include_photos:
+                upload_dir = os.path.join(os.path.dirname(__file__), "uploads", report.reportno)
+                photo_count = 0
+                if os.path.exists(upload_dir):
+                    photo_files = [
+                        f
+                        for f in os.listdir(upload_dir)
+                        if f.lower().endswith((".jpg", ".jpeg", ".png", ".gif"))
+                    ]
+                    photo_count = len(photo_files)
+                row.append(str(photo_count))
+
+            output.append(row)
+
+        # CSVレスポンスを作成
+        import io
+        import csv
+
+        # BOM付きUTF-8で出力（Excel対応）
+        output_buffer = io.BytesIO()
+        output_buffer.write("\ufeff".encode("utf-8"))  # BOMを追加
+
+        # UTF-8でテキストを書き込み
+        text_buffer = io.StringIO()
+        writer = csv.writer(text_buffer)
+        writer.writerows(output)
+
+        # テキストをUTF-8バイトに変換して追加
+        output_buffer.write(text_buffer.getvalue().encode("utf-8"))
+
+        # ファイル名を生成
+        if start_date and end_date:
+            filename = f"reports_{start_date.replace('-', '')}_{end_date.replace('-', '')}.csv"
+        else:
+            filename = f"reports_{datetime.date.today().strftime('%Y%m%d')}.csv"
+
+        # レスポンスを作成
+        response = make_response(output_buffer.getvalue())
+        response.headers["Content-Type"] = "text/csv; charset=utf-8"
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+
+        return response
+
+    except Exception as e:
+        return f"CSV出力エラー: {str(e)}", 500
 
 
 # 報告書印刷

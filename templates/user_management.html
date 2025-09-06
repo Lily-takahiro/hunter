@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザー管理 - 猟友会管理システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .user-card {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .role-badge {
+            font-size: 0.8rem;
+        }
+
+        .delete-btn {
+            opacity: 0.7;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .delete-btn:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-4">
+        <!-- ヘッダー -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-people"></i> ユーザー管理</h1>
+            <div>
+                <a href="/dashboard" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> ダッシュボードに戻る
+                </a>
+                <a href="/users/add" class="btn btn-primary">
+                    <i class="bi bi-person-plus"></i> 新規ユーザー追加
+                </a>
+            </div>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">{{ total_users }}</h5>
+                        <p class="card-text">総ユーザー数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">{{ admin_count }}</h5>
+                        <p class="card-text">管理者</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">{{ editor_count }}</h5>
+                        <p class="card-text">編集者</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">{{ user_count }}</h5>
+                        <p class="card-text">一般ユーザー</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ユーザー一覧 -->
+        {% if users %}
+        <div class="row">
+            {% for user in users %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card user-card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-person-circle"></i> {{ user.name }}
+                        </h6>
+                        {% if user.role == "admin" %}
+                        <span class="badge bg-danger role-badge">管理者</span>
+                        {% elif user.role == "editor" %}
+                        <span class="badge bg-warning role-badge">編集者</span>
+                        {% else %}
+                        <span class="badge bg-secondary role-badge">一般</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <strong>ユーザー名:</strong><br>
+                            <code>{{ user.name }}</code>
+                        </div>
+                        <div class="mb-2">
+                            <strong>メールアドレス:</strong><br>
+                            <small class="text-muted">{{ user.email }}</small>
+                        </div>
+                        <div class="mb-2">
+                            <strong>権限:</strong><br>
+                            {% if user.role == "admin" %}
+                            システム管理者（全機能利用可能）
+                            {% elif user.role == "editor" %}
+                            編集者（報告作成・編集可能）
+                            {% else %}
+                            一般ユーザー（報告作成のみ）
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <strong>作成日:</strong><br>
+                            <small class="text-muted">
+                                {% if user.created_at %}
+                                {{ user.created_at }}
+                                {% else %}
+                                不明
+                                {% endif %}
+                            </small>
+                        </div>
+
+                        <!-- 報告数統計 -->
+                        <div class="alert alert-light py-2">
+                            <small>
+                                <i class="bi bi-file-earmark-text"></i>
+                                報告数: {{ user.report_count }}件
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between">
+                            <a href="/users/{{ user.id }}/edit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> 編集
+                            </a>
+                            {% if user.id != current_user.id %}
+                            <button class="btn btn-sm btn-outline-danger delete-btn" onclick="confirmDelete({{ user.id }}, '{{ user.name }}')">
+                                <i class="bi bi-trash"></i> 削除
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-outline-secondary" disabled title="自分自身は削除できません">
+                                <i class="bi bi-shield-check"></i> 自分
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <h4>ユーザーが登録されていません</h4>
+            <p>最初のユーザーを追加してください。</p>
+            <a href="/users/add" class="btn btn-primary">
+                <i class="bi bi-person-plus"></i> 新規ユーザー追加
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle text-danger"></i> ユーザー削除確認
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>以下のユーザーを削除しますか？</p>
+                    <div class="alert alert-danger">
+                        <strong>ユーザー名:</strong> <span id="deleteUserName"></span><br>
+                        <strong>注意:</strong> この操作は取り消せません。ユーザーに関連するすべてのデータが削除されます。
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> キャンセル
+                    </button>
+                    <form id="deleteForm" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> 削除する
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmDelete(userId, userName) {
+            document.getElementById('deleteUserName').textContent = userName;
+            document.getElementById('deleteForm').action = `/users/${userId}/delete`;
+
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            modal.show();
+        }
+    </script>
+</body>
+
+</html>

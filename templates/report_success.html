@@ -31,6 +31,25 @@
                             報告内容は正常に保存されました。<br>
                             写真もアップロードされました。
                         </p>
+
+                        <!-- メール送信状況 -->
+                        {% if mail_sent %}
+                        <div class="alert alert-success mt-3">
+                            <h6><i class="bi bi-envelope-check"></i> メール通知送信完了</h6>
+                            <p class="mb-0">
+                                役場担当者にメール通知を送信しました。<br>
+                                報告の受理確認をお待ちください。
+                            </p>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning mt-3">
+                            <h6><i class="bi bi-envelope-exclamation"></i> メール通知について</h6>
+                            <p class="mb-0">
+                                メール機能が利用できないため、メール通知を送信できませんでした。<br>
+                                必要に応じて、役場担当者に直接ご連絡ください。
+                            </p>
+                        </div>
+                        {% endif %}
                         <div class="mt-4">
                             <a href="/dashboard" class="btn btn-primary btn-lg">
                                 <i class="bi bi-house"></i> ダッシュボードに戻る

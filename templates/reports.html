@@ -35,6 +35,7 @@
                         <th>従事内容</th>
                         <th>しっぽ提出</th>
                         <th>報告者</th>
+                        <th>メール状況</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -58,9 +59,35 @@
                         </td>
                         <td>{{ report.user }}</td>
                         <td>
-                            <a href="/report/print/{{ report.id }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-printer"></i> 印刷
-                            </a>
+                            {% if report.email_sent %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-envelope-check"></i> 送信済み
+                            </span>
+                            <br>
+                            <small class="text-muted">{{ report.email_sent_date }}</small>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-envelope"></i> 未送信
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="/report/print/{{ report.id }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-printer"></i> 印刷
+                                </a>
+                                {% if user.role == "admin" %}
+                                {% if not report.email_sent %}
+                                <a href="/reports/{{ report.id }}/email" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-envelope"></i> メール
+                                </a>
+                                {% else %}
+                                <button class="btn btn-sm btn-outline-secondary" disabled title="既に送信済み">
+                                    <i class="bi bi-envelope-check"></i> 送信済み
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

@@ -1,105 +1,336 @@
-<div class="mb-3">
-    <a href="/dashboard" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> ダッシュボードに戻る
-    </a>
-</div>
+<!DOCTYPE html>
+<html lang="ja">
 
-<form method="POST" enctype="multipart/form-data">
-    <div class="mb-3">
-        <label>実施日</label>
-        <input type="date" name="date" class="form-control" value="{{ form_data.date or '' }}" required>
-    </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新規報告 - 猟友会管理システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .form-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0d6efd;
+        }
 
-    <div class="row">
-        <div class="col">
-            <label>開始時間</label>
-            <input type="time" name="start_time" class="form-control" value="{{ form_data.start_time or '' }}" required>
+        .form-section h5 {
+            color: #0d6efd;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .required-field::after {
+            content: " *";
+            color: #dc3545;
+        }
+
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .btn-submit {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .btn-submit:hover {
+            background: linear-gradient(45deg, #218838, #1ea085);
+            transform: translateY(-1px);
+        }
+
+        .photo-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+
+        .photo-upload-area:hover {
+            border-color: #0d6efd;
+            background: #e3f2fd;
+        }
+
+        .team-member-grid {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-4">
+        <!-- ヘッダー -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-file-earmark-plus"></i> 新規報告</h1>
+            <a href="/dashboard" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> ダッシュボードに戻る
+            </a>
         </div>
-        <div class="col">
-            <label>終了時間</label>
-            <input type="time" name="end_time" class="form-control" value="{{ form_data.end_time or '' }}" required>
-        </div>
-    </div>
 
-    <div class="mb-3">
-        <label>捕獲方法</label>
-        <select name="method" class="form-select">
-            <option value="罠" {% if form_data.method=='罠' %}selected{% endif %}>罠</option>
-            <option value="その他" {% if form_data.method=='その他' %}selected{% endif %}>その他</option>
-        </select>
-    </div>
+        <form method="POST" action="/report/new" enctype="multipart/form-data">
+            <!-- 基本情報セクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-calendar-event"></i> 基本情報</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label required-field">実施日</label>
+                        <input type="date" name="date" class="form-control" value="{{ form_data.date or '' }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label required-field">開始時間</label>
+                        <input type="time" name="start_time" class="form-control" value="{{ form_data.start_time or '' }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label required-field">終了時間</label>
+                        <input type="time" name="end_time" class="form-control" value="{{ form_data.end_time or '' }}" required>
+                    </div>
+                </div>
+            </div>
 
-    <div class="mb-3">
-        <label>捕獲者</label>
-        <select name="hunter" class="form-select">
-            {% for member in members %}
-            <option value="{{ member }}" {% if form_data.hunter==member %}selected{% endif %}>{{ member }}</option>
-            {% endfor %}
-        </select>
-    </div>
+            <!-- 捕獲情報セクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-bullseye"></i> 捕獲情報</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label required-field">捕獲方法</label>
+                        <select name="method" class="form-select" required>
+                            <option value="">選択してください</option>
+                            <option value="罠" {% if form_data.method=='罠' %}selected{% endif %}>罠</option>
+                            <option value="その他" {% if form_data.method=='その他' %}selected{% endif %}>その他</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label required-field">捕獲者</label>
+                        <select name="hunter" class="form-select" required>
+                            <option value="">選択してください</option>
+                            {% for member in members %}
+                            <option value="{{ member }}" {% if form_data.hunter==member %}selected{% endif %}>{{ member }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label class="form-label required-field">捕獲場所</label>
+                        <select name="location" class="form-select" required>
+                            <option value="">選択してください</option>
+                            {% for place in locations %}
+                            <option value="{{ place }}" {% if form_data.location==place %}selected{% endif %}>{{ place }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label required-field">捕獲鳥獣</label>
+                        <select name="animal" class="form-select" required>
+                            <option value="">選択してください</option>
+                            {% for animal in animals %}
+                            <option value="{{ animal }}" {% if form_data.animal==animal %}selected{% endif %}>{{ animal }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label class="form-label required-field">オス・メス</label>
+                        <select name="sex" class="form-select" required>
+                            <option value="">選択してください</option>
+                            {% for sex in sexs %}
+                            <option value="{{ sex }}" {% if form_data.sex==sex %}selected{% endif %}>{{ sex }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
 
-    <div class="mb-3">
-        <label>実施隊従事者（複数選択可、捕獲者も参加した場合は選択すること）</label><br>
-        <div class="row">
-            {% for member in members %}
-            <div class="col-md-4 col-sm-6 mb-2">
+            <!-- 実施隊従事者セクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-people"></i> 実施隊従事者</h5>
+                <p class="text-muted mb-3">複数選択可（捕獲者も参加した場合は選択すること）</p>
+                <div class="team-member-grid">
+                    <div class="row">
+                        {% for member in members %}
+                        <div class="col-md-4 col-sm-6 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="team_members" value="{{ member }}" id="team_member_{{ loop.index }}" {% if member in form_data.team_members %}checked{% endif %}>
+                                <label class="form-check-label" for="team_member_{{ loop.index }}">
+                                    {{ member }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 従事内容セクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-list-check"></i> 従事内容</h5>
+                <div class="row">
+                    {% for task in tasks %}
+                    <div class="col-md-4 col-sm-6 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="tasks" value="{{ task }}" id="task_{{ loop.index }}" {% if task in form_data.tasks %}checked{% endif %}>
+                            <label class="form-check-label" for="task_{{ loop.index }}">
+                                {{ task }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 写真アップロードセクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-camera"></i> 証明用写真</h5>
+                <div class="photo-upload-area">
+                    <i class="bi bi-cloud-upload fs-1 text-muted mb-3"></i>
+                    <h6>写真をアップロード</h6>
+                    <p class="text-muted mb-3">証明用写真を1枚以上アップロードしてください</p>
+                    <input type="file" name="photos" class="form-control" multiple required accept="image/*">
+                    <small class="text-muted">対応形式: JPG, PNG, GIF</small>
+                </div>
+            </div>
+
+            <!-- その他セクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-info-circle"></i> その他</h5>
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="team_members" value="{{ member }}" id="team_member_{{ loop.index }}" {% if member in form_data.team_members %}checked{% endif %}>
-                    <label class="form-check-label" for="team_member_{{ loop.index }}">
-                        {{ member }}
+                    <input class="form-check-input" type="checkbox" name="tail_submitted" value="yes" id="tail_submitted" {% if form_data.tail_submitted %}checked{% endif %}>
+                    <label class="form-check-label" for="tail_submitted">
+                        しっぽを提出した
                     </label>
                 </div>
             </div>
-            {% endfor %}
-        </div>
+
+            <!-- 送信ボタン -->
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-submit btn-lg" id="submitBtn">
+                    <i class="bi bi-send"></i> 報告する
+                </button>
+            </div>
+        </form>
     </div>
 
-    <div class="mb-3">
-        <label>捕獲場所</label>
-        <select name="location" class="form-select">
-            {% for place in locations %}
-            <option value="{{ place }}" {% if form_data.location==place %}selected{% endif %}>{{ place }}</option>
-            {% endfor %}
-        </select>
-    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ファイルアップロード時のプレビュー機能
+        function handleFileChange(e) {
+            const files = e.target.files;
+            const uploadArea = document.querySelector('.photo-upload-area');
+            const fileInput = e.target;
 
-    <div class="mb-3">
-        <label>捕獲鳥獣</label>
-        <select name="animal" class="form-select">
-            {% for animal in animals %}
-            <option value="{{ animal }}" {% if form_data.animal==animal %}selected{% endif %}>{{ animal }}</option>
-            {% endfor %}
-        </select>
-    </div>
+            if (files.length > 0) {
+                // プレビュー表示を追加（元のinputは保持）
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'photo-preview mt-3';
+                previewDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <strong>${files.length}枚の写真が選択されました</strong>
+                        <ul class="list-unstyled mt-2 mb-0">
+                            ${Array.from(files).map(file => `<li><i class="bi bi-file-image"></i> ${file.name}</li>`).join('')}
+                        </ul>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="resetFileInput()">
+                            <i class="bi bi-arrow-clockwise"></i> 別の写真をアップロードする
+                        </button>
+                    </div>
+                `;
 
-    <div class="mb-3">
-        <label>オス_メス</label>
-        <select name="sex" class="form-select">
-            {% for sex in sexs %}
-            <option value="{{ sex }}" {% if form_data.sex==sex %}selected{% endif %}>{{ sex }}</option>
-            {% endfor %}
-        </select>
-    </div>
+                // 既存のプレビューを削除
+                const existingPreview = uploadArea.querySelector('.photo-preview');
+                if (existingPreview) {
+                    existingPreview.remove();
+                }
 
-    <div class="mb-3">
-        <label>従事内容</label><br>
-        {% for task in tasks %}
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" name="tasks" value="{{ task }}" {% if task in form_data.tasks %}checked{% endif %}>
-            <label class="form-check-label">{{ task }}</label>
-        </div>
-        {% endfor %}
-    </div>
+                // 新しいプレビューを追加
+                uploadArea.appendChild(previewDiv);
+            }
+        }
 
-    <div class="mb-3">
-        <label>写真（前後2枚以上必須）</label>
-        <input type="file" name="photos" class="form-control" multiple required>
-    </div>
+        function resetFileInput() {
+            // プレビューを削除
+            const preview = document.querySelector('.photo-preview');
+            if (preview) {
+                preview.remove();
+            }
 
-    <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" name="tail_submitted" value="yes" {% if form_data.tail_submitted %}checked{% endif %}>
-        <label class="form-check-label">しっぽを提出した</label>
-    </div>
+            // ファイル入力をリセット
+            const fileInput = document.querySelector('input[name="photos"]');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        }
 
-    <button type="submit" class="btn btn-success">報告する</button>
-</form>
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function () {
+            const fileInput = document.querySelector('input[name="photos"]');
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileChange);
+            }
+
+            // 送信ボタンのクリックイベント
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', function (e) {
+                    console.log('報告ボタンがクリックされました');
+                    console.log('イベント:', e);
+                });
+            } else {
+                console.log('送信ボタンが見つかりません');
+            }
+
+            // フォーム送信のデバッグ
+            const form = document.querySelector('form');
+            console.log('フォーム要素:', form);
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    console.log('フォーム送信が開始されました');
+                    console.log('フォームのaction:', form.action);
+                    console.log('フォームのmethod:', form.method);
+                    console.log('フォームのenctype:', form.enctype);
+
+                    // 必須フィールドのチェック
+                    const requiredFields = form.querySelectorAll('[required]');
+                    let hasErrors = false;
+                    console.log('必須フィールド数:', requiredFields.length);
+
+                    requiredFields.forEach(function (field) {
+                        console.log('フィールド:', field.name, '値:', field.value);
+                        if (!field.value.trim()) {
+                            console.log('必須フィールドが空です:', field.name);
+                            hasErrors = true;
+                        }
+                    });
+
+                    if (hasErrors) {
+                        console.log('必須フィールドのエラーがあります');
+                        // 一時的にバリデーションを無効化してテスト
+                        console.log('バリデーションをスキップして送信します');
+                        // e.preventDefault();
+                        // alert('必須項目を入力してください');
+                        // return false;
+                    }
+
+                    console.log('フォーム送信を実行します');
+                });
+            } else {
+                console.log('フォーム要素が見つかりません');
+            }
+        });
+    </script>
+</body>
+
+</html>
