@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猟友会メンバー管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>猟友会メンバー管理</h1>
+            <div>
+                <a href="/dashboard" class="btn btn-secondary">ダッシュボード</a>
+                <a href="/members/import_csv" class="btn btn-success">CSVインポート</a>
+                <a href="/members/add" class="btn btn-primary">新規メンバー追加</a>
+                <a href="/logout" class="btn btn-outline-danger">ログアウト</a>
+            </div>
+        </div>
+
+        {% if members %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>名前</th>
+                        <th>大型獣用番号</th>
+                        <th>小型獣用番号</th>
+                        <th>電話番号</th>
+                        <th>メールアドレス</th>
+                        <th>入会日</th>
+                        <th>ステータス</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in members %}
+                    <tr>
+                        <td><strong>{{ member.name }}</strong></td>
+                        <td>
+                            {% if member.large_license_permit or member.large_license_operator or member.large_license_instruction %}
+                            <small>
+                                {% if member.large_license_permit %}許可: {{ member.large_license_permit }}<br>{% endif %}
+                                {% if member.large_license_operator %}従事: {{ member.large_license_operator }}<br>{% endif %}
+                                {% if member.large_license_instruction %}指示: {{ member.large_license_instruction }}{% endif %}
+                            </small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if member.small_license_permit or member.small_license_operator or member.small_license_instruction %}
+                            <small>
+                                {% if member.small_license_permit %}許可: {{ member.small_license_permit }}<br>{% endif %}
+                                {% if member.small_license_operator %}従事: {{ member.small_license_operator }}<br>{% endif %}
+                                {% if member.small_license_instruction %}指示: {{ member.small_license_instruction }}{% endif %}
+                            </small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ member.phone or '-' }}</td>
+                        <td>{{ member.email or '-' }}</td>
+                        <td>{{ member.join_date or '-' }}</td>
+                        <td>
+                            {% if member.status == "active" %}
+                            <span class="badge bg-success">活動中</span>
+                            {% else %}
+                            <span class="badge bg-secondary">非活動</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/members/edit/{{ member.id }}" class="btn btn-sm btn-outline-primary">編集</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete({{ member.id }}, '{{ member.name }}')">削除</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h4>メンバーが登録されていません</h4>
+            <p>まだメンバーが登録されていません。以下の方法でメンバーを登録できます：</p>
+            <ul>
+                <li><a href="/members/import_csv" class="btn btn-success btn-sm">CSVインポート</a> - 既存のCSVファイルから一括インポート</li>
+                <li><a href="/members/add" class="btn btn-primary btn-sm">新規メンバー追加</a> - 個別にメンバーを追加</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">メンバー削除の確認</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>メンバー「<span id="memberName"></span>」を削除しますか？</p>
+                    <p class="text-danger">この操作は取り消せません。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form id="deleteForm" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-danger">削除</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmDelete(memberId, memberName) {
+            document.getElementById('memberName').textContent = memberName;
+            document.getElementById('deleteForm').action = '/members/delete/' + memberId;
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+    </script>
+</body>
+
+</html>
