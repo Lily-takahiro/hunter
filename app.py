@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session, url_for, send_from_directory
 from peewee import Model, CharField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -40,6 +40,7 @@ class Report(Model):
     end_time = CharField()
     method = CharField()
     hunter = CharField()
+    team_members = CharField(null=True)  # 実施隊従事者（カンマ区切りで保存）
     location = CharField()
     animal = CharField()
     sex = CharField()
@@ -76,7 +77,7 @@ db.connect()
 
 # データベースの再作成（開発環境用）
 # 本番環境では削除してください
-RECREATE_DB = True  # データベースを再作成する場合はTrue or False
+RECREATE_DB = False  # データベースを再作成する場合はTrue or False
 
 if RECREATE_DB:
     try:
@@ -96,14 +97,21 @@ if not RECREATE_DB:
         # テーブルが存在するかチェック
         cursor = db.execute_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='report'")
         if cursor.fetchone():
-            # reportnoカラムが存在するかチェック
+            # カラムが存在するかチェック
             cursor = db.execute_sql("PRAGMA table_info(report)")
             columns = [row[1] for row in cursor.fetchall()]
+
             if "reportno" not in columns:
                 db.execute_sql("ALTER TABLE report ADD COLUMN reportno VARCHAR(255)")
                 print("reportnoフィールドを追加しました")
             else:
                 print("reportnoフィールドは既に存在します")
+
+            if "team_members" not in columns:
+                db.execute_sql("ALTER TABLE report ADD COLUMN team_members VARCHAR(255)")
+                print("team_membersフィールドを追加しました")
+            else:
+                print("team_membersフィールドは既に存在します")
         else:
             print("reportテーブルが存在しません")
     except Exception as e:
@@ -184,11 +192,35 @@ def new_report():
 
     if request.method == "POST":
         try:
-            # 報告番号を生成（日付+連番）
+            # 報告番号を生成（日付+連番）- 重複回避機能付き
             today = datetime.date.today().strftime("%Y%m%d")
-            # 今日の報告数を取得して連番を生成
-            today_reports = Report.select().where(Report.reportno.like(f"{today}%")).count()
-            reportno = f"{today}{today_reports + 1:03d}"
+            reportno = None
+            for attempt in range(10):  # 最大10回試行
+                # 今日の最大報告番号を取得して連番を生成
+                max_report = (
+                    Report.select()
+                    .where(Report.reportno.like(f"{today}%"))
+                    .order_by(Report.reportno.desc())
+                    .first()
+                )
+                if max_report:
+                    # 既存の最大番号から次の番号を生成
+                    last_number = int(max_report.reportno[-3:])  # 最後の3桁を取得
+                    next_number = last_number + 1 + attempt  # 試行回数を加算
+                else:
+                    # 今日初めての報告
+                    next_number = 1 + attempt
+
+                candidate_reportno = f"{today}{next_number:03d}"
+
+                # 重複チェック
+                existing = Report.get_or_none(Report.reportno == candidate_reportno)
+                if not existing:
+                    reportno = candidate_reportno
+                    break
+
+            if not reportno:
+                return "報告番号の生成に失敗しました。しばらく時間をおいてから再試行してください。"
 
             # フォームデータを取得
             date = request.form["date"]
@@ -196,6 +228,7 @@ def new_report():
             end_time = request.form["end_time"]
             method = request.form["method"]
             hunter = request.form["hunter"]
+            team_members = ",".join(request.form.getlist("team_members"))  # 実施隊従事者をカンマ区切りで結合
             location = request.form["location"]
             animal = request.form["animal"]
             sex = request.form["sex"]
@@ -214,6 +247,7 @@ def new_report():
                 end_time=end_time,
                 method=method,
                 hunter=hunter,
+                team_members=team_members,
                 location=location,
                 animal=animal,
                 sex=sex,
@@ -236,7 +270,7 @@ def new_report():
                         new_filename = f"{i+1:02d}_{name}{ext}"
                         photo.save(os.path.join(upload_dir, new_filename))
 
-            return f"報告を受け付けました！報告番号: {reportno}"
+            return render_template("report_success.html", reportno=reportno)
 
         except Exception as e:
             return f"エラーが発生しました: {str(e)}"
@@ -260,6 +294,59 @@ def reports():
         reports_list = Report.select().where(Report.user == user.name).order_by(Report.reportno.desc())
 
     return render_template("reports.html", reports=reports_list, user=user)
+
+
+# 報告書印刷
+@app.route("/report/print/<report_id>")
+def print_report(report_id):
+    if "user_id" not in session:
+        return redirect("/login")
+
+    try:
+        # 報告データを取得
+        report = Report.get_by_id(report_id)
+
+        # 猟友会メンバー情報を取得
+        member = Member.get_or_none(Member.name == report.hunter)
+        if not member:
+            # メンバーが見つからない場合は空のオブジェクトを作成
+            class EmptyMember:
+                large_license_permit = None
+                large_license_operator = None
+                large_license_instruction = None
+                small_license_permit = None
+                small_license_operator = None
+                small_license_instruction = None
+
+            member = EmptyMember()
+
+        # 写真ファイルを取得
+        photos = []
+        upload_dir = os.path.join(os.path.dirname(__file__), "uploads", report.reportno)
+        if os.path.exists(upload_dir):
+            photo_files = [
+                f for f in os.listdir(upload_dir) if f.lower().endswith((".jpg", ".jpeg", ".png", ".gif"))
+            ]
+            photo_files.sort()  # ファイル名順にソート
+            for photo_file in photo_files:
+                photos.append(f"/uploads/{report.reportno}/{photo_file}")
+
+        # 今日の日付を取得
+        today = datetime.date.today().strftime("%Y年%m月%d日")
+
+        return render_template("report_print.html", report=report, member=member, photos=photos, today=today)
+
+    except Report.DoesNotExist:
+        return "報告が見つかりません", 404
+    except Exception as e:
+        return f"エラーが発生しました: {str(e)}", 500
+
+
+# 写真ファイルの静的配信
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    return send_from_directory(uploads_dir, filename)
 
 
 # 猟友会メンバー管理

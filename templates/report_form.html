@@ -1,3 +1,9 @@
+<div class="mb-3">
+    <a href="/dashboard" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> ダッシュボードに戻る
+    </a>
+</div>
+
 <form method="POST" enctype="multipart/form-data">
     <div class="mb-3">
         <label>実施日</label>
@@ -30,6 +36,22 @@
             <option value="{{ member }}">{{ member }}</option>
             {% endfor %}
         </select>
+    </div>
+
+    <div class="mb-3">
+        <label>実施隊従事者（複数選択可）</label><br>
+        <div class="row">
+            {% for member in members %}
+            <div class="col-md-4 col-sm-6 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="team_members" value="{{ member }}" id="team_member_{{ loop.index }}">
+                    <label class="form-check-label" for="team_member_{{ loop.index }}">
+                        {{ member }}
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
     <div class="mb-3">

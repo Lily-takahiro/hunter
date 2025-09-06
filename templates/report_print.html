@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大型有害鳥獣捕獲活動　従事報告書（内訳書）</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 15mm;
+        }
+
+        body {
+            font-family: "MS Gothic", "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .report-subtitle {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .report-info {
+            font-size: 10px;
+            text-align: right;
+        }
+
+        .form-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .form-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        .form-table .label {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            width: 20%;
+            text-align: center;
+        }
+
+        .form-table .value {
+            width: 30%;
+            min-height: 30px;
+        }
+
+        .license-section {
+            margin-bottom: 15px;
+        }
+
+        .license-title {
+            font-weight: bold;
+            background-color: #e0e0e0;
+            padding: 5px;
+            margin-bottom: 5px;
+        }
+
+        .license-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .license-table td {
+            border: 1px solid #000;
+            padding: 5px;
+            text-align: center;
+        }
+
+        .license-table .label {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            width: 15%;
+        }
+
+        .photo-section {
+            margin-top: 20px;
+        }
+
+        .photo-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .photo-box {
+            width: 200px;
+            height: 150px;
+            border: 2px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9f9;
+            position: relative;
+        }
+
+        .photo-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .photo-label {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            font-size: 10px;
+            background-color: white;
+            padding: 2px 5px;
+        }
+
+        .signature-section {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-box {
+            width: 200px;
+            text-align: center;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #000;
+            height: 30px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="report-header">
+        <div class="report-title">大型・小型有害鳥獣捕獲活動　従事報告書（内訳書）</div>
+        <div class="report-subtitle">報告番号: {{ report.reportno }}</div>
+        <div class="report-info">提出日: {{ today }}</div>
+    </div>
+
+    <div class="license-section">
+        <div class="license-title">大型獣用番号</div>
+        <table class="license-table">
+            <tr>
+                <td class="label">許可番号</td>
+                <td>{{ member.large_license_permit or '　' }}</td>
+                <td class="label">従事者番号</td>
+                <td>{{ member.large_license_operator or '　' }}</td>
+                <td class="label">指示書番号</td>
+                <td>{{ member.large_license_instruction or '　' }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="license-section">
+        <div class="license-title">小型獣用番号</div>
+        <table class="license-table">
+            <tr>
+                <td class="label">許可番号</td>
+                <td>{{ member.small_license_permit or '　' }}</td>
+                <td class="label">従事者番号</td>
+                <td>{{ member.small_license_operator or '　' }}</td>
+                <td class="label">指示書番号</td>
+                <td>{{ member.small_license_instruction or '　' }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="form-table">
+        <tr>
+            <td class="label">従事年月日</td>
+            <td class="value">{{ report.date }}</td>
+            <td class="label">従事時間</td>
+            <td class="value">{{ report.start_time }} ～ {{ report.end_time }}</td>
+        </tr>
+        <tr>
+            <td class="label">実施隊員従事者</td>
+            <td class="value" colspan="3">
+                {% if report.team_members %}
+                {{ report.team_members.replace(',', '、') }}
+                {% else %}
+                　
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="label">捕獲方法</td>
+            <td class="value">{{ report.method }}</td>
+            <td class="label">捕獲者</td>
+            <td class="value">{{ report.hunter }}</td>
+        </tr>
+        <tr>
+            <td class="label">捕獲場所</td>
+            <td class="value">{{ report.location }}</td>
+            <td class="label">捕獲鳥獣</td>
+            <td class="value">{{ report.animal }}</td>
+        </tr>
+        <tr>
+            <td class="label">オス・メス</td>
+            <td class="value">{{ report.sex }}</td>
+            <td class="label">従事内容</td>
+            <td class="value">
+                {% if report.tasks %}
+                {{ report.tasks.replace(',', '、') }}
+                {% else %}
+                　
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <div class="photo-section">
+        <div style="font-weight: bold; margin-bottom: 10px;">証明用写真（2枚以上）</div>
+        <div class="photo-container">
+            {% for photo in photos %}
+            <div class="photo-box">
+                <img src="{{ photo }}" alt="証明写真{{ loop.index }}">
+                <div class="photo-label">{{ loop.index }}枚目</div>
+            </div>
+            {% endfor %}
+            {% if photos|length < 2 %} {% for i in range(2 - photos|length) %} <div class="photo-box">
+                <div style="color: #999;">写真{{ photos|length + loop.index }}枚目</div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+    </div>
+
+    <div class="signature-section">
+        <div class="signature-box">
+            <div class="signature-line">{{ report.user }}</div>
+            <div>報告者</div>
+        </div>
+    </div>
+
+    <div class="no-print" style="margin-top: 30px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            印刷する
+        </button>
+        <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">
+            閉じる
+        </button>
+    </div>
+</body>
+
+</html>
