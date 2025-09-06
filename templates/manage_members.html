@@ -30,7 +30,7 @@
                         <th>小型獣用番号</th>
                         <th>電話番号</th>
                         <th>メールアドレス</th>
-                        <th>入会日</th>
+                        <th>誕生日</th>
                         <th>ステータス</th>
                         <th>操作</th>
                     </tr>
@@ -63,7 +63,7 @@
                         </td>
                         <td>{{ member.phone or '-' }}</td>
                         <td>{{ member.email or '-' }}</td>
-                        <td>{{ member.join_date or '-' }}</td>
+                        <td>{{ member.birthday_date or '-' }}</td>
                         <td>
                             {% if member.status == "active" %}
                             <span class="badge bg-success">活動中</span>

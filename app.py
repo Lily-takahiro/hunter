@@ -63,7 +63,7 @@ class Member(Model):
     phone = CharField(null=True)  # 電話番号
     email = CharField(null=True)  # メールアドレス
     address = CharField(null=True)  # 住所
-    join_date = CharField(null=True)  # 入会日
+    birthday_date = CharField(null=True)  # 誕生日
     status = CharField(default="active")  # active / inactive
     notes = CharField(null=True)  # 備考
 
@@ -76,7 +76,7 @@ db.connect()
 
 # データベースの再作成（開発環境用）
 # 本番環境では削除してください
-RECREATE_DB = False  # データベースを再作成する場合はTrue or False
+RECREATE_DB = True  # データベースを再作成する場合はTrue or False
 
 if RECREATE_DB:
     try:
@@ -299,7 +299,7 @@ def add_member():
                 phone=request.form.get("phone", ""),
                 email=request.form.get("email", ""),
                 address=request.form.get("address", ""),
-                join_date=request.form.get("join_date", ""),
+                birthday_date=request.form.get("birthday_date", ""),
                 status=request.form.get("status", "active"),
                 notes=request.form.get("notes", ""),
             )
@@ -338,7 +338,7 @@ def edit_member(member_id):
             member.phone = request.form.get("phone", "")
             member.email = request.form.get("email", "")
             member.address = request.form.get("address", "")
-            member.join_date = request.form.get("join_date", "")
+            member.birthday_date = request.form.get("birthday_date", "")
             member.status = request.form.get("status", "active")
             member.notes = request.form.get("notes", "")
             member.save()
