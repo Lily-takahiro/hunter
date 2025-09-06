@@ -10,7 +10,9 @@ from flask import (
 )
 from peewee import Model, CharField, BooleanField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 
+load_dotenv(override=True)
 # メール機能を無効化する場合は以下の行をコメントアウト
 try:
     from flask_mail import Mail, Message
@@ -34,7 +36,7 @@ app.config["MAIL_SERVER"] = "smtp.gmail.com"  # Gmailを使用する場合
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
 app.config["MAIL_USERNAME"] = "tttsss120604280520@gmail.com"  # 送信者メールアドレス
-app.config["MAIL_PASSWORD"] = "nkfk erce qzuh mbvb"  # アプリパスワード
+app.config["MAIL_PASSWORD"] = os.environ.get("PWD")  # アプリパスワード
 app.config["MAIL_DEFAULT_SENDER"] = "tttsss120604280520@gmail.com"
 
 # 役場担当者のメールアドレス
