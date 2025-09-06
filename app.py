@@ -4,6 +4,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import os  # ← 追加
 import csv  # ← 追加
+import datetime  # ← 追加
+from werkzeug.utils import secure_filename  # ← 追加
 
 
 app = Flask(__name__)
@@ -31,6 +33,7 @@ class User(Model):
 
 
 class Report(Model):
+    reportno = CharField(unique=True)  # 報告番号
     user = CharField()  # ユーザー名（またはID）
     date = CharField()
     start_time = CharField()
@@ -49,7 +52,41 @@ class Report(Model):
 
 # DB初期化
 db.connect()
+
+# データベースの再作成（開発環境用）
+# 本番環境では削除してください
+RECREATE_DB = False  # データベースを再作成する場合はTrue
+
+if RECREATE_DB:
+    try:
+        # 既存のテーブルを削除
+        db.drop_tables([User, Report], safe=True)
+        print("既存のテーブルを削除しました")
+    except Exception as e:
+        print(f"テーブル削除エラー: {e}")
+
+# テーブルを作成
 db.create_tables([User, Report])
+print("テーブルを作成しました")
+
+# マイグレーション処理（データベース再作成しない場合）
+if not RECREATE_DB:
+    try:
+        # テーブルが存在するかチェック
+        cursor = db.execute_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='report'")
+        if cursor.fetchone():
+            # reportnoカラムが存在するかチェック
+            cursor = db.execute_sql("PRAGMA table_info(report)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "reportno" not in columns:
+                db.execute_sql("ALTER TABLE report ADD COLUMN reportno VARCHAR(255)")
+                print("reportnoフィールドを追加しました")
+            else:
+                print("reportnoフィールドは既に存在します")
+        else:
+            print("reportテーブルが存在しません")
+    except Exception as e:
+        print(f"マイグレーションエラー: {e}")
 
 
 # トップページのルーティング
@@ -125,12 +162,83 @@ def new_report():
     members = load_csv_list("data/猟友会名簿.csv")
 
     if request.method == "POST":
-        # 保存処理（後で追加）
-        return "報告を受け付けました！"
+        try:
+            # 報告番号を生成（日付+連番）
+            today = datetime.date.today().strftime("%Y%m%d")
+            # 今日の報告数を取得して連番を生成
+            today_reports = Report.select().where(Report.reportno.like(f"{today}%")).count()
+            reportno = f"{today}{today_reports + 1:03d}"
+
+            # フォームデータを取得
+            date = request.form["date"]
+            start_time = request.form["start_time"]
+            end_time = request.form["end_time"]
+            method = request.form["method"]
+            hunter = request.form["hunter"]
+            location = request.form["location"]
+            animal = request.form["animal"]
+            sex = request.form["sex"]
+            tasks = ",".join(request.form.getlist("tasks"))  # チェックボックスの値をカンマ区切りで結合
+            tail_submitted = "yes" if request.form.get("tail_submitted") else "no"
+
+            # ユーザー情報を取得
+            user = User.get_by_id(session["user_id"])
+
+            # データベースに保存
+            report = Report(
+                reportno=reportno,
+                user=user.name,
+                date=date,
+                start_time=start_time,
+                end_time=end_time,
+                method=method,
+                hunter=hunter,
+                location=location,
+                animal=animal,
+                sex=sex,
+                tasks=tasks,
+                tail_submitted=tail_submitted,
+            )
+            report.save()
+
+            # 写真のアップロード処理
+            photos = request.files.getlist("photos")
+            if photos and photos[0].filename:  # 写真がアップロードされている場合
+                upload_dir = os.path.join(os.path.dirname(__file__), "uploads", reportno)
+                os.makedirs(upload_dir, exist_ok=True)
+
+                for i, photo in enumerate(photos):
+                    if photo.filename:
+                        filename = secure_filename(photo.filename)
+                        # ファイル名に番号を付けて保存
+                        name, ext = os.path.splitext(filename)
+                        new_filename = f"{i+1:02d}_{name}{ext}"
+                        photo.save(os.path.join(upload_dir, new_filename))
+
+            return f"報告を受け付けました！報告番号: {reportno}"
+
+        except Exception as e:
+            return f"エラーが発生しました: {str(e)}"
 
     return render_template(
         "report_form.html", members=members, locations=locations, animals=animals, tasks=tasks, sexs=sexs
     )
+
+
+# 報告一覧表示
+@app.route("/reports")
+def reports():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    # 管理者の場合は全報告を表示、それ以外は自分の報告のみ
+    if user.role == "admin":
+        reports_list = Report.select().order_by(Report.reportno.desc())
+    else:
+        reports_list = Report.select().where(Report.user == user.name).order_by(Report.reportno.desc())
+
+    return render_template("reports.html", reports=reports_list, user=user)
 
 
 # ログアウト処理
