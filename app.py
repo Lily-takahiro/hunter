@@ -34,11 +34,11 @@ app.config["MAIL_SERVER"] = "smtp.gmail.com"  # Gmailを使用する場合
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
 app.config["MAIL_USERNAME"] = "tttsss120604280520@gmail.com"  # 送信者メールアドレス
-app.config["MAIL_PASSWORD"] = "1234"  # アプリパスワード
+app.config["MAIL_PASSWORD"] = "nkfk erce qzuh mbvb"  # アプリパスワード
 app.config["MAIL_DEFAULT_SENDER"] = "tttsss120604280520@gmail.com"
 
 # 役場担当者のメールアドレス
-YAKUBA_EMAIL = "tttsss120604280520@example.com"  # 実際の役場メールアドレスに変更
+YAKUBA_EMAIL = "tttsss120604280520@gmail.com"  # 実際の役場メールアドレスに変更
 
 # メール機能の初期化
 if MAIL_AVAILABLE:
