@@ -40,6 +40,11 @@ app.config["MAIL_DEFAULT_SENDER"] = "tttsss120604280520@gmail.com"
 # 役場担当者のメールアドレス
 YAKUBA_EMAIL = "tttsss120604280520@gmail.com"  # 実際の役場メールアドレスに変更
 
+# メール送信者設定
+# "fixed": 固定の送信者アドレスを使用
+# "user": ログインユーザーのメールアドレスを使用
+MAIL_SENDER_MODE = "user"  # "fixed" または "user"
+
 # メール機能の初期化
 if MAIL_AVAILABLE:
     mail = Mail(app)
@@ -253,6 +258,14 @@ def load_csv_list(filename):
         return [row[0] for row in csv.reader(f) if row]
 
 
+def get_mail_sender(user):
+    """メール送信者アドレスを取得"""
+    if MAIL_SENDER_MODE == "user" and user.email:
+        return (user.name, user.email)
+    else:
+        return app.config["MAIL_DEFAULT_SENDER"]
+
+
 def send_report_notification_email(report, user):
     """役場担当者に報告通知メールを送信"""
     try:
@@ -273,8 +286,13 @@ def send_report_notification_email(report, user):
             current_time=current_time,
         )
 
-        # メールメッセージを作成
-        msg = Message(subject=subject, recipients=[YAKUBA_EMAIL], html=html_body)
+        # メールメッセージを作成（送信者を動的に設定）
+        msg = Message(
+            subject=subject,
+            recipients=[YAKUBA_EMAIL],
+            html=html_body,
+            sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
+        )
 
         # メール送信
         mail.send(msg)
@@ -562,22 +580,22 @@ def send_email_reply(report_id):
 
         # メール送信
         try:
-            # 報告者へのメール
+            # 報告者へのメール（送信者を動的に設定）
             msg = Message(
                 subject=subject,
                 recipients=[f"{report.user}@gmail.com"],  # 実際のメールアドレスに変更
                 body=body,
-                sender=app.config["MAIL_DEFAULT_SENDER"],
+                sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
             )
             mail.send(msg)
 
-            # 役場担当者へのコピー
+            # 役場担当者へのコピー（送信者を動的に設定）
             if send_copy:
                 copy_msg = Message(
                     subject=f"[コピー] {subject}",
-                    recipients=[app.config["YAKUBA_EMAIL"]],
+                    recipients=[YAKUBA_EMAIL],
                     body=f"以下のメールを送信しました：\n\n{body}",
-                    sender=app.config["MAIL_DEFAULT_SENDER"],
+                    sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
                 )
                 mail.send(copy_msg)
 
