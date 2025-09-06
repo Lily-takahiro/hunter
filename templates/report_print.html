@@ -12,8 +12,8 @@
         }
 
         body {
-            font-family: "MS Gothic", "Courier New", monospace;
-            font-size: 12px;
+            font-family: "Meiryo UI", "メイリオ", sans-serif;
+            font-size: 14px;
             line-height: 1.4;
             margin: 0;
             padding: 0;
@@ -102,11 +102,13 @@
             display: flex;
             gap: 20px;
             margin-top: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .photo-box {
-            width: 200px;
-            height: 150px;
+            width: 250px;
+            height: 190px;
             border: 2px solid #000;
             display: flex;
             align-items: center;
@@ -243,15 +245,15 @@
     </table>
 
     <div class="photo-section">
-        <div style="font-weight: bold; margin-bottom: 10px;">証明用写真（2枚以上）</div>
+        <div style="font-weight: bold; margin-bottom: 10px;">証明用写真（最大3枚）</div>
         <div class="photo-container">
-            {% for photo in photos %}
+            {% for photo in photos[:3] %}
             <div class="photo-box">
                 <img src="{{ photo }}" alt="証明写真{{ loop.index }}">
                 <div class="photo-label">{{ loop.index }}枚目</div>
             </div>
             {% endfor %}
-            {% if photos|length < 2 %} {% for i in range(2 - photos|length) %} <div class="photo-box">
+            {% if photos|length < 3 %} {% for i in range(3 - photos|length) %} <div class="photo-box">
                 <div style="color: #999;">写真{{ photos|length + loop.index }}枚目</div>
         </div>
         {% endfor %}

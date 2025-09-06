@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大型・小型有害鳥獣捕獲活動報告通知</title>
+    <style>
+        body {
+            font-family: "Meiryo UI", "メイリオ", sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .content {
+            background-color: #ffffff;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+
+        .report-info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 3px;
+            margin: 15px 0;
+        }
+
+        .report-info h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            width: 120px;
+            color: #6c757d;
+        }
+
+        .info-value {
+            flex: 1;
+        }
+
+        .footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+            font-size: 12px;
+            color: #6c757d;
+            text-align: center;
+        }
+
+        .highlight {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 3px;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>大型・小型有害鳥獣捕獲活動報告通知</h1>
+    </div>
+
+    <div class="content">
+        <p>役場担当者 様</p>
+
+        <p>猟友会から新しい有害鳥獣捕獲活動の報告が提出されました。</p>
+
+        <div class="highlight">
+            <strong>報告番号: {{ report.reportno }}</strong><br>
+            報告者: {{ report.user }}<br>
+            報告日時: {{ report_date }}
+        </div>
+
+        <div class="report-info">
+            <h3>報告内容</h3>
+
+            <div class="info-row">
+                <div class="info-label">実施日:</div>
+                <div class="info-value">{{ report.date }}</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">実施時間:</div>
+                <div class="info-value">{{ report.start_time }} ～ {{ report.end_time }}</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">捕獲者:</div>
+                <div class="info-value">{{ report.hunter }}</div>
+            </div>
+
+            {% if report.team_members %}
+            <div class="info-row">
+                <div class="info-label">実施隊従事者:</div>
+                <div class="info-value">{{ report.team_members.replace(',', '、') }}</div>
+            </div>
+            {% endif %}
+
+            <div class="info-row">
+                <div class="info-label">捕獲方法:</div>
+                <div class="info-value">{{ report.method }}</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">捕獲場所:</div>
+                <div class="info-value">{{ report.location }}</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">捕獲鳥獣:</div>
+                <div class="info-value">{{ report.animal }}</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">性別:</div>
+                <div class="info-value">{{ report.sex }}</div>
+            </div>
+
+            {% if report.tasks %}
+            <div class="info-row">
+                <div class="info-label">従事内容:</div>
+                <div class="info-value">{{ report.tasks.replace(',', '、') }}</div>
+            </div>
+            {% endif %}
+
+            <div class="info-row">
+                <div class="info-label">しっぽ提出:</div>
+                <div class="info-value">
+                    {% if report.tail_submitted == "yes" %}
+                    <span style="color: #28a745; font-weight: bold;">提出済み</span>
+                    {% else %}
+                    <span style="color: #dc3545; font-weight: bold;">未提出</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <p>詳細な報告書はシステム内で確認・印刷できます。</p>
+
+        <p>ご確認のほど、よろしくお願いいたします。</p>
+    </div>
+
+    <div class="footer">
+        <p>このメールは猟友会管理システムから自動送信されています。</p>
+        <p>送信日時: {{ current_time }}</p>
+    </div>
+</body>
+
+</html>

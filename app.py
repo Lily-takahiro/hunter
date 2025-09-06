@@ -2,6 +2,15 @@ from flask import Flask, render_template, request, redirect, session, url_for, s
 from peewee import Model, CharField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# メール機能を無効化する場合は以下の行をコメントアウト
+try:
+    from flask_mail import Mail, Message
+
+    MAIL_AVAILABLE = True
+except ImportError:
+    MAIL_AVAILABLE = False
+    print("Flask-Mailが利用できません。メール機能は無効化されます。")
+
 import os  # ← 追加
 import csv  # ← 追加
 import datetime  # ← 追加
@@ -10,6 +19,23 @@ from werkzeug.utils import secure_filename  # ← 追加
 
 app = Flask(__name__)
 app.secret_key = "your-secret-key"  # 本番では .env で管理
+
+# メール設定
+app.config["MAIL_SERVER"] = "smtp.gmail.com"  # Gmailを使用する場合
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = "your-email@gmail.com"  # 送信者メールアドレス
+app.config["MAIL_PASSWORD"] = "your-app-password"  # アプリパスワード
+app.config["MAIL_DEFAULT_SENDER"] = "your-email@gmail.com"
+
+# 役場担当者のメールアドレス
+YAKUBA_EMAIL = "tttsss120604280520@example.com"  # 実際の役場メールアドレスに変更
+
+# メール機能の初期化
+if MAIL_AVAILABLE:
+    mail = Mail(app)
+else:
+    mail = None
 
 # SQLiteデータベースの設定
 db = SqliteDatabase("users.db")
@@ -179,6 +205,38 @@ def load_csv_list(filename):
         return [row[0] for row in csv.reader(f) if row]
 
 
+def send_report_notification_email(report, user):
+    """役場担当者に報告通知メールを送信"""
+    try:
+        # 現在の日時を取得
+        now = datetime.datetime.now()
+        report_date = now.strftime("%Y年%m月%d日 %H:%M")
+        current_time = now.strftime("%Y年%m月%d日 %H:%M:%S")
+
+        # メール件名
+        subject = f"【猟友会報告】大型・小型有害鳥獣捕獲活動報告 - {report.reportno}"
+
+        # メール本文をHTMLテンプレートから生成
+        html_body = render_template(
+            "email_report_notification.html",
+            report=report,
+            user=user,
+            report_date=report_date,
+            current_time=current_time,
+        )
+
+        # メールメッセージを作成
+        msg = Message(subject=subject, recipients=[YAKUBA_EMAIL], html=html_body)
+
+        # メール送信
+        mail.send(msg)
+        print(f"報告通知メールを送信しました: {report.reportno}")
+
+    except Exception as e:
+        print(f"メール送信でエラーが発生しました: {e}")
+        raise
+
+
 @app.route("/report/new", methods=["GET", "POST"])
 def new_report():
     if "user_id" not in session:
@@ -235,6 +293,31 @@ def new_report():
             tasks = ",".join(request.form.getlist("tasks"))  # チェックボックスの値をカンマ区切りで結合
             tail_submitted = "yes" if request.form.get("tail_submitted") else "no"
 
+            # フォームデータをセッションに保存（エラー時の復元用）
+            session["form_data"] = {
+                "date": request.form["date"],
+                "start_time": request.form["start_time"],
+                "end_time": request.form["end_time"],
+                "method": request.form["method"],
+                "hunter": request.form["hunter"],
+                "team_members": request.form.getlist("team_members"),
+                "location": request.form["location"],
+                "animal": request.form["animal"],
+                "sex": request.form["sex"],
+                "tasks": request.form.getlist("tasks"),
+                "tail_submitted": request.form.get("tail_submitted"),
+            }
+
+            # 写真のバリデーション（2枚以上必須）
+            photos = request.files.getlist("photos")
+            valid_photos = [photo for photo in photos if photo.filename]
+            if len(valid_photos) < 2:
+                return render_template(
+                    "error.html",
+                    error_message=f"写真は2枚以上必要です。現在の枚数: {len(valid_photos)}",
+                    back_url="/report/new",
+                )
+
             # ユーザー情報を取得
             user = User.get_by_id(session["user_id"])
 
@@ -257,26 +340,48 @@ def new_report():
             report.save()
 
             # 写真のアップロード処理
-            photos = request.files.getlist("photos")
-            if photos and photos[0].filename:  # 写真がアップロードされている場合
+            if valid_photos:  # バリデーション済みの写真をアップロード
                 upload_dir = os.path.join(os.path.dirname(__file__), "uploads", reportno)
                 os.makedirs(upload_dir, exist_ok=True)
 
-                for i, photo in enumerate(photos):
-                    if photo.filename:
-                        filename = secure_filename(photo.filename)
-                        # ファイル名に番号を付けて保存
-                        name, ext = os.path.splitext(filename)
-                        new_filename = f"{i+1:02d}_{name}{ext}"
-                        photo.save(os.path.join(upload_dir, new_filename))
+                for i, photo in enumerate(valid_photos):
+                    filename = secure_filename(photo.filename)
+                    # ファイル名に番号を付けて保存
+                    name, ext = os.path.splitext(filename)
+                    new_filename = f"{i+1:02d}_{name}{ext}"
+                    photo.save(os.path.join(upload_dir, new_filename))
 
+            # 役場担当者にメール通知を送信（メール機能が利用可能で設定が完了している場合のみ）
+            if MAIL_AVAILABLE and app.config["MAIL_USERNAME"] != "your-email@gmail.com":
+                try:
+                    send_report_notification_email(report, user)
+                except Exception as e:
+                    print(f"メール送信エラー: {e}")
+                    # メール送信に失敗しても報告は成功とする
+            else:
+                if not MAIL_AVAILABLE:
+                    print("Flask-Mailが利用できないため、メール送信をスキップしました")
+                else:
+                    print("メール設定が未完了のため、メール送信をスキップしました")
+
+            # 成功時にセッションデータをクリア
+            session.pop("form_data", None)
             return render_template("report_success.html", reportno=reportno)
 
         except Exception as e:
             return f"エラーが発生しました: {str(e)}"
 
+    # セッションからフォームデータを復元
+    form_data = session.get("form_data", {})
+
     return render_template(
-        "report_form.html", members=members, locations=locations, animals=animals, tasks=tasks, sexs=sexs
+        "report_form.html",
+        members=members,
+        locations=locations,
+        animals=animals,
+        tasks=tasks,
+        sexs=sexs,
+        form_data=form_data,
     )
 
 

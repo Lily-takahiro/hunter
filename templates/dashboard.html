@@ -12,12 +12,11 @@
     <h2>ようこそ、{{ user.name }}さん（{{ user.role }}）</h2>
     <ul class="list-group mt-4">
         <li class="list-group-item"><a href="/report/new">害獣駆除報告を登録する</a></li>
-        <li class="list-group-item"><a href="/reports">登録済み報告を見る</a></li>
+        <li class="list-group-item"><a href="/reports">登録済み報告を見る、印刷する</a></li>
         {% if user.role in ["editor", "admin"] %}
         <li class="list-group-item"><a href="/members/manage">猟友会名簿の管理</a></li>
         {% endif %}
         {% if user.role == "admin" %}
-        <li class="list-group-item"><a href="/reports/print">報告書を印刷する</a></li>
         <li class="list-group-item"><a href="/reports/export">CSVを出力する</a></li>
         {% endif %}
         <li class="list-group-item"><a href="/logout">ログアウト</a></li>
