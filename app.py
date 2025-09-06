@@ -30,9 +30,26 @@ class User(Model):
         database = db
 
 
+class Report(Model):
+    user = CharField()  # ユーザー名（またはID）
+    date = CharField()
+    start_time = CharField()
+    end_time = CharField()
+    method = CharField()
+    hunter = CharField()
+    location = CharField()
+    animal = CharField()
+    sex = CharField()
+    tasks = CharField()  # カンマ区切りで保存
+    tail_submitted = CharField()  # "yes" or "no"
+
+    class Meta:
+        database = db
+
+
 # DB初期化
 db.connect()
-db.create_tables([User])
+db.create_tables([User, Report])
 
 
 # トップページのルーティング
