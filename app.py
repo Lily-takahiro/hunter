@@ -730,17 +730,44 @@ def send_email_reply(report_id):
                 back_url=f"/reports/{report_id}/email",
             )
 
+        # 報告者の実際のメールアドレスを取得
+        print(f"報告データ: report.user = {report.user}")
+
+        # デバッグ: 全ユーザー情報を表示
+        all_users = User.select()
+        print("データベース内の全ユーザー:")
+        for u in all_users:
+            print(f"  - 名前: {u.name}, メール: {u.email}")
+
+        try:
+            report_user = User.get(User.name == report.user)
+            recipient_email = report_user.email
+            print(f"報告者のメールアドレスを取得: {report.user} -> {recipient_email}")
+        except User.DoesNotExist:
+            # ユーザーが見つからない場合はデフォルトのメールアドレスを使用
+            recipient_email = f"{report.user}@gmail.com"
+            print(f"ユーザーが見つからないためデフォルトメールを使用: {recipient_email}")
+
+        msg = Message(
+            subject=subject,
+            recipients=[recipient_email],
+            body=body,
+            sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
+            charset="utf-8",
+        )
         # メール送信
         try:
             # 報告者へのメール（送信者を動的に設定）
+            print(f"メール送信先: {recipient_email}")
             msg = Message(
                 subject=subject,
-                recipients=[f"{report.user}@gmail.com"],  # 実際のメールアドレスに変更
+                recipients=[recipient_email],  # 上で取得した実際のメールアドレスを使用
                 body=body,
                 sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
                 charset="utf-8",
             )
             mail.send(msg)
+            print(f"メール送信完了: {recipient_email}")
 
             # 役場担当者へのコピー（送信者を動的に設定）
             if send_copy:
