@@ -24,6 +24,13 @@
     <p class="text-muted">猟友会報告システム</p>
   </div>
   <h2>ユーザー登録</h2>
+
+  {% if error %}
+  <div class="alert alert-danger" role="alert">
+    <i class="bi bi-exclamation-triangle"></i> {{ error }}
+  </div>
+  {% endif %}
+
   <form method="POST">
     <div class="mb-3">
       <label for="name">名前</label>
@@ -39,15 +46,39 @@
     </div>
     <div class="mb-3">
       <label for="role">権限</label>
-      <select name="role" class="form-select">
+      <select name="role" class="form-select" id="roleSelect" onchange="toggleAdminPassword()">
         <option value="reporter">報告者</option>
         <option value="editor">編集者</option>
         <option value="admin">役場担当者</option>
       </select>
     </div>
+
+    <!-- 管理者権限認証フィールド（編集者・管理者選択時のみ表示） -->
+    <div class="mb-3" id="adminPasswordField" style="display: none;">
+      <label for="admin_password">管理者権限認証パスワード</label>
+      <input type="password" name="admin_password" class="form-control" id="adminPasswordInput" placeholder="管理者権限を取得するためのパスワードを入力">
+      <small class="text-muted">編集者・管理者権限を取得するには、管理者権限認証パスワードが必要です。</small>
+    </div>
     <button type="submit" class="btn btn-success">登録する</button>
     <a href="/login" class="btn btn-link">ログイン画面へ</a>
   </form>
+
+  <script>
+    function toggleAdminPassword() {
+      const roleSelect = document.getElementById('roleSelect');
+      const adminPasswordField = document.getElementById('adminPasswordField');
+      const adminPasswordInput = document.getElementById('adminPasswordInput');
+
+      if (roleSelect.value === 'editor' || roleSelect.value === 'admin') {
+        adminPasswordField.style.display = 'block';
+        adminPasswordInput.required = true;
+      } else {
+        adminPasswordField.style.display = 'none';
+        adminPasswordInput.required = false;
+        adminPasswordInput.value = '';
+      }
+    }
+  </script>
 </body>
 
 </html>

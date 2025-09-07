@@ -67,6 +67,9 @@ MAIL_SENDER_MODE = "user"  # "fixed" または "user"
 PHOTO_CLEANUP_DAYS = 60  # 削除対象の日数
 PHOTO_CLEANUP_ENABLED = True  # 自動削除機能の有効/無効
 
+# 管理者権限認証設定
+ADMIN_AUTH_PASSWORD = os.getenv("ADMIN_AUTH_PASSWORD", "admin123")  # 管理者権限取得用パスワード
+
 # メール機能の初期化
 if MAIL_AVAILABLE:
     mail = Mail(app)
@@ -282,11 +285,26 @@ def register():
         email = request.form["email"]
         password = request.form["password"]
         role = request.form.get("role", "reporter")
+        admin_password = request.form.get("admin_password", "")
+
+        # 管理者権限・編集者権限の場合は認証パスワードをチェック
+        if role in ["admin", "editor"]:
+            if not admin_password or admin_password != ADMIN_AUTH_PASSWORD:
+                return render_template(
+                    "register.html",
+                    error="管理者権限・編集者権限を取得するには、正しい管理者権限認証パスワードが必要です。",
+                )
+
+        # メールアドレスの重複チェック
+        existing_user = User.select().where(User.email == email).first()
+        if existing_user:
+            return render_template("register.html", error="このメールアドレスは既に登録されています。")
+
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         user = User(name=name, email=email, role=role, created_at=created_at)
         user.set_password(password)
         user.save()
-        print(f"登録完了: {user.name}")
+        print(f"登録完了: {user.name} (権限: {user.role})")
         return redirect(url_for("login", registered=1))
     return render_template("register.html")
 
