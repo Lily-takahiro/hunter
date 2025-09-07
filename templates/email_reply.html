@@ -82,8 +82,8 @@
                 <form method="POST" action="/reports/{{ report.id }}/email">
                     <div class="mb-3">
                         <label class="form-label">宛先</label>
-                        <input type="email" class="form-control" value="{{ report.user }}@example.com" readonly>
-                        <small class="text-muted">※ 実際のメールアドレスは報告者に確認してください</small>
+                        <input type="email" class="form-control" value="{{ recipient_email }}" readonly>
+                        <small class="text-muted">※ 報告者の実際のメールアドレス</small>
                     </div>
 
                     <div class="mb-3">

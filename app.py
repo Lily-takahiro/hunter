@@ -659,6 +659,31 @@ def reports():
     return render_template("reports.html", reports=reports_list, user=user)
 
 
+# デバッグ用: データベース内容確認
+@app.route("/debug/users")
+def debug_users():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "管理者のみアクセス可能です"
+
+    users = User.select()
+    reports = Report.select()
+
+    result = "<h1>データベース内容確認</h1>"
+    result += "<h2>ユーザー一覧</h2>"
+    for u in users:
+        result += f"<p>ID: {u.id}, 名前: '{u.name}', メール: '{u.email}', ロール: {u.role}</p>"
+
+    result += "<h2>報告一覧</h2>"
+    for r in reports:
+        result += f"<p>ID: {r.id}, 報告番号: {r.reportno}, ユーザー: '{r.user}'</p>"
+
+    return result
+
+
 # メール返信フォーム表示
 @app.route("/reports/<int:report_id>/email")
 def email_reply_form(report_id):
@@ -671,6 +696,13 @@ def email_reply_form(report_id):
 
     try:
         report = Report.get_by_id(report_id)
+
+        # 報告者の実際のメールアドレスを取得
+        try:
+            report_user = User.get(User.name == report.user)
+            recipient_email = report_user.email
+        except User.DoesNotExist:
+            recipient_email = f"{report.user}@gmail.com"
 
         # メールテンプレート
         email_template = f"""{report.user} 様
@@ -692,7 +724,11 @@ def email_reply_form(report_id):
 役場担当者"""
 
         return render_template(
-            "email_reply.html", report=report, current_user=user, email_template=email_template
+            "email_reply.html",
+            report=report,
+            current_user=user,
+            email_template=email_template,
+            recipient_email=recipient_email,
         )
     except Report.DoesNotExist:
         return "報告が見つかりません", 404
@@ -731,22 +767,31 @@ def send_email_reply(report_id):
             )
 
         # 報告者の実際のメールアドレスを取得
-        print(f"報告データ: report.user = {report.user}")
+        print(f"報告データ: report.user = '{report.user}'")
 
         # デバッグ: 全ユーザー情報を表示
         all_users = User.select()
         print("データベース内の全ユーザー:")
         for u in all_users:
-            print(f"  - 名前: {u.name}, メール: {u.email}")
+            print(f"  - 名前: '{u.name}', メール: '{u.email}'")
 
+        # ユーザー名で検索（完全一致）
         try:
             report_user = User.get(User.name == report.user)
             recipient_email = report_user.email
-            print(f"報告者のメールアドレスを取得: {report.user} -> {recipient_email}")
+            print(f"報告者のメールアドレスを取得: '{report.user}' -> '{recipient_email}'")
+
+            # メールアドレスが空の場合は警告
+            if not recipient_email or recipient_email.strip() == "":
+                print(f"警告: ユーザー '{report.user}' のメールアドレスが空です")
+                recipient_email = f"{report.user}@gmail.com"
+                print(f"デフォルトメールを使用: {recipient_email}")
+
         except User.DoesNotExist:
+            print(f"ユーザー '{report.user}' が見つかりません")
             # ユーザーが見つからない場合はデフォルトのメールアドレスを使用
             recipient_email = f"{report.user}@gmail.com"
-            print(f"ユーザーが見つからないためデフォルトメールを使用: {recipient_email}")
+            print(f"デフォルトメールを使用: {recipient_email}")
 
         msg = Message(
             subject=subject,
