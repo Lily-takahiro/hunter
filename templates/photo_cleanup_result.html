@@ -66,6 +66,9 @@
                             <div class="col-md-6">
                                 <p><strong>削除件数:</strong> {{ result.deleted_count }}件</p>
                                 <p><strong>削除容量:</strong> {{ "%.1f"|format(result.deleted_size / 1024 / 1024) }} MB</p>
+                                {% if custom_days %}
+                                <p><strong>削除基準:</strong> {{ custom_days }}日以上前の写真</p>
+                                {% endif %}
                             </div>
                             <div class="col-md-6">
                                 <p><strong>基準日:</strong> {{ result.cutoff_date }}</p>

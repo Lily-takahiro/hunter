@@ -1400,6 +1400,63 @@ def execute_photo_cleanup():
         )
 
 
+# 管理者による任意日数での写真削除
+@app.route("/admin/photo-cleanup/custom", methods=["POST"])
+def execute_custom_photo_cleanup():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    try:
+        # フォームから日数を取得
+        days = int(request.form.get("days", PHOTO_CLEANUP_DAYS))
+
+        # 日数の範囲チェック（1日以上365日以下）
+        if days < 1 or days > 365:
+            return render_template(
+                "photo_cleanup_result.html",
+                user=user,
+                result=None,
+                success=False,
+                error_message="日数は1日以上365日以下で指定してください",
+            )
+
+        # 削除実行
+        result = cleanup_old_photos(days)
+
+        if result:
+            return render_template(
+                "photo_cleanup_result.html", user=user, result=result, success=True, custom_days=days
+            )
+        else:
+            return render_template(
+                "photo_cleanup_result.html",
+                user=user,
+                result=None,
+                success=False,
+                error_message="写真削除処理でエラーが発生しました",
+            )
+    except ValueError:
+        return render_template(
+            "photo_cleanup_result.html",
+            user=user,
+            result=None,
+            success=False,
+            error_message="日数は数値で入力してください",
+        )
+    except Exception as e:
+        return render_template(
+            "photo_cleanup_result.html",
+            user=user,
+            result=None,
+            success=False,
+            error_message=f"写真削除処理でエラーが発生しました: {str(e)}",
+        )
+
+
 if __name__ == "__main__":
     # エラーを防ぐため、より安全な設定で起動
     try:

@@ -177,9 +177,9 @@
                             <strong>注意:</strong> {{ old_photos_count }}件の報告の写真が削除対象です。削除後は復元できません。
                         </div>
 
-                        <form method="POST" action="/admin/photo-cleanup/execute" class="d-inline">
-                            <button type="submit" class="btn btn-danger btn-lg me-3" onclick="return confirm('本当に{{ old_photos_count }}件の写真を削除しますか？この操作は取り消せません。')">
-                                <i class="bi bi-trash"></i> 写真を削除する
+                        <form method="POST" action="/admin/photo-cleanup/execute" class="d-inline me-3">
+                            <button type="submit" class="btn btn-danger btn-lg" onclick="return confirm('本当に{{ old_photos_count }}件の写真を削除しますか？この操作は取り消せません。')">
+                                <i class="bi bi-trash"></i> 写真を削除する ({{ cleanup_days }}日以上)
                             </button>
                         </form>
                         {% else %}
@@ -188,6 +188,20 @@
                             <strong>削除対象の写真はありません。</strong> すべての写真が{{ cleanup_days }}日以内にアップロードされています。
                         </div>
                         {% endif %}
+
+                        <!-- 任意日数での削除フォーム（常に表示） -->
+                        <div class="mt-4">
+                            <h5><i class="bi bi-gear"></i> 任意日数での削除</h5>
+                            <p class="text-muted">指定した日数以上前の写真を削除できます。</p>
+                            <form method="POST" action="/admin/photo-cleanup/custom" class="d-inline" onsubmit="return confirmCustomDelete()">
+                                <div class="input-group justify-content-center">
+                                    <input type="number" name="days" class="form-control" placeholder="日数" min="1" max="365" value="{{ cleanup_days }}" style="width: 120px;">
+                                    <button type="submit" class="btn btn-warning btn-lg">
+                                        <i class="bi bi-trash"></i> 指定日数以上で削除
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
 
                         <a href="/dashboard" class="btn btn-secondary btn-lg">
                             <i class="bi bi-arrow-left"></i> ダッシュボードに戻る
@@ -199,6 +213,16 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmCustomDelete() {
+            const days = document.querySelector('input[name="days"]').value;
+            if (!days || days < 1 || days > 365) {
+                alert('日数は1日以上365日以下で入力してください。');
+                return false;
+            }
+            return confirm(`本当に${days}日以上前の写真を削除しますか？この操作は取り消せません。`);
+        }
+    </script>
 </body>
 
 </html>
