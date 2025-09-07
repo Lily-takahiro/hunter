@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>写真削除管理 - 平泉ハンターレポート</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .app-title-small {
+            color: #6c757d;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+        }
+
+        .warning-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 15px;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-radius: 15px;
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-house"></i> 平泉ハンターレポート
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="bi bi-person-circle"></i> {{ user.name }} ({{ user.role }})
+                </span>
+                <a class="btn btn-outline-light btn-sm" href="/logout">
+                    <i class="bi bi-box-arrow-right"></i> ログアウト
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="bi bi-trash"></i> 写真削除管理</h2>
+                <p class="text-muted">アップロードから{{ cleanup_days }}日経過した写真の削除管理を行います</p>
+            </div>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card stats-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-images" style="font-size: 3rem;"></i>
+                        <h3 class="mt-3">{{ total_reports_with_photos }}</h3>
+                        <p class="mb-0">写真付き報告数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card warning-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <h3 class="mt-3">{{ old_photos_count }}</h3>
+                        <p class="mb-0">削除対象写真数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card info-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-hdd" style="font-size: 3rem;"></i>
+                        <h3 class="mt-3">{{ "%.1f"|format(total_size / 1024 / 1024) }} MB</h3>
+                        <p class="mb-0">写真総容量</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 設定情報 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-gear"></i> 削除設定</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>削除対象日数:</strong> {{ cleanup_days }}日</p>
+                                <p><strong>基準日:</strong> {{ cutoff_date }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>自動削除:</strong>
+                                    {% if cleanup_enabled %}
+                                    <span class="badge bg-success">有効</span> (毎日午前2時実行)
+                                    {% else %}
+                                    <span class="badge bg-danger">無効</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 削除対象一覧 -->
+        {% if old_reports %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-list"></i> 削除対象報告一覧</h5>
+                        <span class="badge bg-warning">{{ old_reports|length }}件</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>報告番号</th>
+                                        <th>報告者</th>
+                                        <th>アップロード日時</th>
+                                        <th>経過日数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for report in old_reports %}
+                                    <tr>
+                                        <td>{{ report.reportno }}</td>
+                                        <td>{{ report.user }}</td>
+                                        <td>{{ report.photo_upload_date }}</td>
+                                        <td>
+                                            {% set upload_date = report.photo_upload_date.split(' ')[0] %}
+                                            {% set days_passed = (now().date() - upload_date).days %}
+                                            <span class="badge bg-warning">{{ days_passed }}日</span>
+                                        </td>
+                                        <td>
+                                            <a href="/reports/print/{{ report.id }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                                <i class="bi bi-printer"></i> 印刷
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 操作ボタン -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        {% if old_photos_count > 0 %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>注意:</strong> {{ old_photos_count }}件の報告の写真が削除対象です。削除後は復元できません。
+                        </div>
+
+                        <form method="POST" action="/admin/photo-cleanup/execute" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-lg me-3" onclick="return confirm('本当に{{ old_photos_count }}件の写真を削除しますか？この操作は取り消せません。')">
+                                <i class="bi bi-trash"></i> 写真を削除する
+                            </button>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            <strong>削除対象の写真はありません。</strong> すべての写真が{{ cleanup_days }}日以内にアップロードされています。
+                        </div>
+                        {% endif %}
+
+                        <a href="/dashboard" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-arrow-left"></i> ダッシュボードに戻る
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

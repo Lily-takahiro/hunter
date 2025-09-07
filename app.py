@@ -10,9 +10,25 @@ from flask import (
 )
 from peewee import Model, CharField, BooleanField, SqliteDatabase
 from werkzeug.security import generate_password_hash, check_password_hash
-from dotenv import load_dotenv
 
-load_dotenv(override=True)
+# 環境変数とスケジューラーの安全な読み込み
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(override=True)
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
+    print("python-dotenvが利用できません。環境変数は手動で設定してください。")
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    SCHEDULER_AVAILABLE = True
+except ImportError:
+    SCHEDULER_AVAILABLE = False
+    print("APSchedulerが利用できません。写真自動削除機能は無効化されます。")
 # メール機能を無効化する場合は以下の行をコメントアウト
 try:
     from flask_mail import Mail, Message
@@ -36,7 +52,7 @@ app.config["MAIL_SERVER"] = "smtp.gmail.com"  # Gmailを使用する場合
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
 app.config["MAIL_USERNAME"] = "tttsss120604280520@gmail.com"  # 送信者メールアドレス
-app.config["MAIL_PASSWORD"] = os.environ.get("PWD")  # アプリパスワード
+app.config["MAIL_PASSWORD"] = os.environ.get("PWD")  # アプリパスワードy
 app.config["MAIL_DEFAULT_SENDER"] = "tttsss120604280520@gmail.com"
 
 # 役場担当者のメールアドレス
@@ -47,11 +63,55 @@ YAKUBA_EMAIL = "tttsss120604280520@gmail.com"  # 実際の役場メールアド�
 # "user": ログインユーザーのメールアドレスを使用
 MAIL_SENDER_MODE = "user"  # "fixed" または "user"
 
+# 写真削除設定
+PHOTO_CLEANUP_DAYS = 60  # 削除対象の日数
+PHOTO_CLEANUP_ENABLED = True  # 自動削除機能の有効/無効
+
 # メール機能の初期化
 if MAIL_AVAILABLE:
     mail = Mail(app)
 else:
     mail = None
+
+# スケジューラーの安全な初期化
+if SCHEDULER_AVAILABLE:
+    scheduler = BackgroundScheduler()
+else:
+    scheduler = None
+
+
+def scheduled_photo_cleanup():
+    """定期実行される写真削除処理"""
+    if PHOTO_CLEANUP_ENABLED:
+        print("定期写真削除処理を開始します...")
+        result = cleanup_old_photos(PHOTO_CLEANUP_DAYS)
+        if result:
+            print(f"定期削除完了: {result['deleted_count']}件の写真を削除しました")
+        else:
+            print("定期削除処理でエラーが発生しました")
+    else:
+        print("写真自動削除機能が無効になっています")
+
+
+# 毎日午前2時に写真削除処理を実行（安全な初期化）
+if PHOTO_CLEANUP_ENABLED and SCHEDULER_AVAILABLE and scheduler is not None:
+    try:
+        scheduler.add_job(
+            func=scheduled_photo_cleanup,
+            trigger=CronTrigger(hour=2, minute=0),  # 毎日午前2時
+            id="photo_cleanup",
+            name="写真削除処理",
+            replace_existing=True,
+        )
+        scheduler.start()
+        print("写真自動削除スケジューラーを開始しました (毎日午前2時実行)")
+    except Exception as e:
+        print(f"スケジューラー起動エラー: {e}")
+        print("写真自動削除機能を無効化します")
+        PHOTO_CLEANUP_ENABLED = False
+elif not SCHEDULER_AVAILABLE:
+    print("APSchedulerが利用できないため、写真自動削除機能を無効化します")
+    PHOTO_CLEANUP_ENABLED = False
 
 # SQLiteデータベースの設定
 db = SqliteDatabase("users.db")
@@ -92,6 +152,7 @@ class Report(Model):
     email_sent = BooleanField(default=False)  # メール送信済みフラグ
     email_sent_date = CharField(null=True)  # メール送信日時
     email_sent_by = CharField(null=True)  # メール送信者
+    photo_upload_date = CharField(null=True)  # 写真アップロード日時
 
     class Meta:
         database = db
@@ -176,6 +237,12 @@ if not RECREATE_DB:
                 print("email_sent_byフィールドを追加しました")
             else:
                 print("email_sent_byフィールドは既に存在します")
+
+            if "photo_upload_date" not in columns:
+                db.execute_sql("ALTER TABLE report ADD COLUMN photo_upload_date VARCHAR(255)")
+                print("photo_upload_dateフィールドを追加しました")
+            else:
+                print("photo_upload_dateフィールドは既に存在します")
         else:
             print("reportテーブルが存在しません")
     except Exception as e:
@@ -268,6 +335,84 @@ def get_mail_sender(user):
         return app.config["MAIL_DEFAULT_SENDER"]
 
 
+def cleanup_old_photos(days=60):
+    """指定日数経過した写真を削除する関数"""
+    try:
+        from datetime import datetime, timedelta
+
+        # 削除対象の日付を計算
+        cutoff_date = datetime.now() - timedelta(days=days)
+        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S")
+
+        print(f"写真削除処理開始: {days}日以上前の写真を削除します (基準日: {cutoff_date_str})")
+
+        # 削除対象の報告を取得
+        old_reports = Report.select().where(
+            (Report.photo_upload_date.is_null(False)) & (Report.photo_upload_date < cutoff_date_str)
+        )
+
+        deleted_count = 0
+        deleted_size = 0
+        deleted_reports = []
+
+        for report in old_reports:
+            try:
+                # 写真ディレクトリのパス
+                upload_dir = os.path.join(os.path.dirname(__file__), "uploads", report.reportno)
+
+                if os.path.exists(upload_dir):
+                    # ディレクトリ内のファイルサイズを計算
+                    dir_size = 0
+                    for root, dirs, files in os.walk(upload_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            dir_size += os.path.getsize(file_path)
+
+                    # ディレクトリを削除
+                    import shutil
+
+                    shutil.rmtree(upload_dir)
+
+                    deleted_count += 1
+                    deleted_size += dir_size
+                    deleted_reports.append(
+                        {
+                            "reportno": report.reportno,
+                            "upload_date": report.photo_upload_date,
+                            "size": dir_size,
+                        }
+                    )
+
+                    print(
+                        f"削除完了: {report.reportno} (アップロード日: {report.photo_upload_date}, サイズ: {dir_size} bytes)"
+                    )
+
+                # データベースからphoto_upload_dateをクリア（報告自体は残す）
+                report.photo_upload_date = None
+                report.save()
+
+            except Exception as e:
+                print(f"写真削除エラー ({report.reportno}): {e}")
+                continue
+
+        # 削除結果をログに記録
+        result = {
+            "deleted_count": deleted_count,
+            "deleted_size": deleted_size,
+            "deleted_reports": deleted_reports,
+            "cutoff_date": cutoff_date_str,
+        }
+
+        print(
+            f"写真削除処理完了: {deleted_count}件の報告の写真を削除しました (総サイズ: {deleted_size} bytes)"
+        )
+        return result
+
+    except Exception as e:
+        print(f"写真削除処理でエラーが発生しました: {e}")
+        return None
+
+
 def send_report_notification_email(report, user):
     """役場担当者に報告通知メールを送信"""
     try:
@@ -294,6 +439,7 @@ def send_report_notification_email(report, user):
             recipients=[YAKUBA_EMAIL],
             html=html_body,
             sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
+            charset="utf-8",
         )
 
         # メール送信
@@ -399,6 +545,9 @@ def new_report():
             # ユーザー情報を取得
             user = User.get_by_id(session["user_id"])
 
+            # 現在の日時を取得
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             # データベースに保存
             report = Report(
                 reportno=reportno,
@@ -414,6 +563,7 @@ def new_report():
                 sex=sex,
                 tasks=tasks,
                 tail_submitted=tail_submitted,
+                photo_upload_date=current_time,  # 写真アップロード日時を記録
             )
             report.save()
 
@@ -588,6 +738,7 @@ def send_email_reply(report_id):
                 recipients=[f"{report.user}@gmail.com"],  # 実際のメールアドレスに変更
                 body=body,
                 sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
+                charset="utf-8",
             )
             mail.send(msg)
 
@@ -598,6 +749,7 @@ def send_email_reply(report_id):
                     recipients=[YAKUBA_EMAIL],
                     body=f"以下のメールを送信しました：\n\n{body}",
                     sender=get_mail_sender(user),  # 送信者アドレスを動的に取得
+                    charset="utf-8",
                 )
                 mail.send(copy_msg)
 
@@ -1088,5 +1240,99 @@ def logout():
     return redirect("/login")
 
 
+# 写真削除管理画面
+@app.route("/admin/photo-cleanup")
+def photo_cleanup_admin():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    # 写真統計情報を取得
+    from datetime import datetime, timedelta
+
+    # 現在の写真数
+    total_reports_with_photos = Report.select().where(Report.photo_upload_date.is_null(False)).count()
+
+    # 60日以上前の写真数
+    cutoff_date = datetime.now() - timedelta(days=PHOTO_CLEANUP_DAYS)
+    cutoff_date_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S")
+    old_photos_count = (
+        Report.select()
+        .where((Report.photo_upload_date.is_null(False)) & (Report.photo_upload_date < cutoff_date_str))
+        .count()
+    )
+
+    # 写真ディレクトリの総サイズを計算
+    uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    total_size = 0
+    if os.path.exists(uploads_dir):
+        for root, dirs, files in os.walk(uploads_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                total_size += os.path.getsize(file_path)
+
+    # 削除対象の報告一覧
+    old_reports = (
+        Report.select()
+        .where((Report.photo_upload_date.is_null(False)) & (Report.photo_upload_date < cutoff_date_str))
+        .order_by(Report.photo_upload_date)
+    )
+
+    return render_template(
+        "photo_cleanup_admin.html",
+        user=user,
+        total_reports_with_photos=total_reports_with_photos,
+        old_photos_count=old_photos_count,
+        total_size=total_size,
+        cutoff_date=cutoff_date_str,
+        old_reports=old_reports,
+        cleanup_days=PHOTO_CLEANUP_DAYS,
+        cleanup_enabled=PHOTO_CLEANUP_ENABLED,
+    )
+
+
+# 手動写真削除実行
+@app.route("/admin/photo-cleanup/execute", methods=["POST"])
+def execute_photo_cleanup():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    user = User.get_by_id(session["user_id"])
+    if user.role != "admin":
+        return "アクセス権限がありません", 403
+
+    try:
+        # 削除実行
+        result = cleanup_old_photos(PHOTO_CLEANUP_DAYS)
+
+        if result:
+            return render_template("photo_cleanup_result.html", user=user, result=result, success=True)
+        else:
+            return render_template(
+                "photo_cleanup_result.html",
+                user=user,
+                result=None,
+                success=False,
+                error_message="写真削除処理でエラーが発生しました",
+            )
+    except Exception as e:
+        return render_template(
+            "photo_cleanup_result.html",
+            user=user,
+            result=None,
+            success=False,
+            error_message=f"エラー: {str(e)}",
+        )
+
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # エラーを防ぐため、より安全な設定で起動
+    try:
+        app.run(debug=True, host="0.0.0.0", port=5000, use_reloader=True, threaded=True)
+    except Exception as e:
+        print(f"サーバー起動エラー: {e}")
+        print("自動リロードを無効化して再起動します...")
+        app.run(debug=True, host="0.0.0.0", port=5000, use_reloader=False, threaded=True)

@@ -2,3 +2,5 @@ flask
 flask-mail
 peewee
 werkzeug
+apscheduler
+python-dotenv
