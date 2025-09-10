@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>報告一覧 - 平泉ハンターレポート</title>
+    <!-- テンプレート更新: 2025-09-10 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -42,7 +43,8 @@
                         <th>場所</th>
                         <th>鳥獣</th>
                         <th>性別</th>
-                        <th>従事内容</th>
+                        <th>従事内容</th> <!-- 従事者の上に移動 -->
+                        <th>従事者</th> <!-- 従事内容の下に移動 -->
                         <th>しっぽ提出</th>
                         <th>報告者</th>
                         <th>メール状況</th>
@@ -59,12 +61,15 @@
                         <td>{{ report.location }}</td>
                         <td>{{ report.animal }}</td>
                         <td>{{ report.sex }}</td>
-                        <td>{{ report.tasks }}</td>
+                        <td>{{ report.tasks }}</td> <!-- 従事内容 -->
+                        <td>{{ report.team_members or '-' }}</td> <!-- 従事者 -->
                         <td>
                             {% if report.tail_submitted == "yes" %}
                             <span class="badge bg-success">提出済み</span>
-                            {% else %}
+                            {% elif report.tail_submitted == "no" %}
                             <span class="badge bg-warning">未提出</span>
+                            {% else %}
+                            <span class="badge bg-secondary">なし</span>
                             {% endif %}
                         </td>
                         <td>{{ report.user }}</td>

@@ -164,6 +164,23 @@
                 </div>
             </div>
 
+            <!-- 従事内容セクション -->
+            <div class="form-section">
+                <h5><i class="bi bi-list-check"></i> 従事内容</h5>
+                <div class="row">
+                    {% for task in tasks %}
+                    <div class="col-md-4 col-sm-6 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="tasks" value="{{ task }}" id="task_{{ loop.index }}" {% if task in form_data.tasks %}checked{% endif %}>
+                            <label class="form-check-label" for="task_{{ loop.index }}">
+                                {{ task }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
             <!-- 実施隊従事者セクション -->
             <div class="form-section">
                 <h5><i class="bi bi-people"></i> 実施隊従事者</h5>
@@ -181,23 +198,6 @@
                         </div>
                         {% endfor %}
                     </div>
-                </div>
-            </div>
-
-            <!-- 従事内容セクション -->
-            <div class="form-section">
-                <h5><i class="bi bi-list-check"></i> 従事内容</h5>
-                <div class="row">
-                    {% for task in tasks %}
-                    <div class="col-md-4 col-sm-6 mb-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="tasks" value="{{ task }}" id="task_{{ loop.index }}" {% if task in form_data.tasks %}checked{% endif %}>
-                            <label class="form-check-label" for="task_{{ loop.index }}">
-                                {{ task }}
-                            </label>
-                        </div>
-                    </div>
-                    {% endfor %}
                 </div>
             </div>
 

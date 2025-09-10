@@ -41,6 +41,7 @@ except ImportError:
 import os  # ← 追加
 import csv  # ← 追加
 import datetime  # ← 追加
+from datetime import timedelta  # ← 追加
 from werkzeug.utils import secure_filename  # ← 追加
 
 
@@ -356,22 +357,33 @@ def get_mail_sender(user):
 def cleanup_old_photos(days=60):
     """指定日数経過した写真を削除する関数"""
     try:
-        from datetime import datetime, timedelta
-
         # 削除対象の日付を計算
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_date_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S")
 
         print(f"写真削除処理開始: {days}日以上前の写真を削除します (基準日: {cutoff_date_str})")
 
+        # デバッグ: 現在の日時を表示
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"現在の日時: {current_time}")
+
         # 削除対象の報告を取得
-        old_reports = Report.select().where(
-            (Report.photo_upload_date.is_null(False)) & (Report.photo_upload_date < cutoff_date_str)
-        )
+        try:
+            old_reports = Report.select().where(
+                (Report.photo_upload_date.is_null(False)) & (Report.photo_upload_date < cutoff_date_str)
+            )
+            print(f"削除対象の報告数: {old_reports.count()}")
+        except Exception as e:
+            print(f"データベースクエリエラー: {e}")
+            return None
 
         deleted_count = 0
         deleted_size = 0
         deleted_reports = []
+
+        # デバッグ: 削除対象の報告の詳細を表示
+        for report in old_reports:
+            print(f"削除対象報告: {report.reportno}, アップロード日: {report.photo_upload_date}")
 
         for report in old_reports:
             try:
@@ -427,7 +439,11 @@ def cleanup_old_photos(days=60):
         return result
 
     except Exception as e:
+        import traceback
+
+        error_details = traceback.format_exc()
         print(f"写真削除処理でエラーが発生しました: {e}")
+        print(f"エラー詳細: {error_details}")
         return None
 
 
@@ -1466,6 +1482,11 @@ def execute_custom_photo_cleanup():
             error_message="日数は数値で入力してください",
         )
     except Exception as e:
+        import traceback
+
+        error_details = traceback.format_exc()
+        print(f"カスタム写真削除でエラーが発生しました: {e}")
+        print(f"エラー詳細: {error_details}")
         return render_template(
             "photo_cleanup_result.html",
             user=user,
