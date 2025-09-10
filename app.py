@@ -547,7 +547,7 @@ def new_report():
             animal = request.form["animal"]
             sex = request.form["sex"]
             tasks = ",".join(request.form.getlist("tasks"))  # チェックボックスの値をカンマ区切りで結合
-            tail_submitted = "yes" if request.form.get("tail_submitted") else "no"
+            tail_submitted = request.form.get("tail_submitted", "")
 
             # フォームデータをセッションに保存（エラー時の復元用）
             session["form_data"] = {
@@ -1066,7 +1066,7 @@ def export_reports_csv():
                 report.animal,
                 report.sex,
                 report.tasks or "",
-                "提出済み" if report.tail_submitted == "yes" else "未提出",
+                "提出済み" if report.tail_submitted == "yes" else "なし",
             ]
 
             # 猟友会メンバー情報を追加

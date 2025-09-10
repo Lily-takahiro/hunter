@@ -216,11 +216,20 @@
             <!-- その他セクション -->
             <div class="form-section">
                 <h5><i class="bi bi-info-circle"></i> その他</h5>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="tail_submitted" value="yes" id="tail_submitted" {% if form_data.tail_submitted %}checked{% endif %}>
-                    <label class="form-check-label" for="tail_submitted">
-                        しっぽを提出した
-                    </label>
+                <div class="mb-3">
+                    <label class="form-label">しっぽの提出</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="tail_submitted" value="" id="tail_none" {% if not form_data.tail_submitted or form_data.tail_submitted=="" %}checked{% endif %}>
+                        <label class="form-check-label" for="tail_none">
+                            なし
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="tail_submitted" value="yes" id="tail_yes" {% if form_data.tail_submitted=="yes" %}checked{% endif %}>
+                        <label class="form-check-label" for="tail_yes">
+                            あり（提出済み）
+                        </label>
+                    </div>
                 </div>
             </div>
 
